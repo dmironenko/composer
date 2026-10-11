@@ -58,8 +58,8 @@ func buildFixture(t *testing.T) (*Client, domain.BuildSpec, string) {
 		Dockerfile: fmt.Sprintf(`FROM busybox:1.37.0 AS builder
 RUN printf %%s %q > /marker
 FROM scratch
-ARG COMPOSER_COMMIT
-LABEL io.composer.test.commit=$COMPOSER_COMMIT
+ARG APP_COMMIT
+LABEL io.composer.test.commit=$APP_COMMIT
 COPY --from=builder /marker /marker
 COPY . /context/
 `, root),

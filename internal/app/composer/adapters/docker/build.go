@@ -45,7 +45,7 @@ func (c *Client) Build(ctx context.Context, spec domain.BuildSpec) (err error) {
 
 	_, err = builder.Solve(ctx, nil, buildkit.SolveOpt{
 		Frontend:      "dockerfile.v0",
-		FrontendAttrs: map[string]string{"build-arg:COMPOSER_COMMIT": spec.Commit},
+		FrontendAttrs: map[string]string{"build-arg:APP_COMMIT": spec.Commit},
 		FrontendInputs: map[string]llb.State{
 			"context":    llb.Scratch().File(llb.Mkdir("/", contextMode)),
 			"dockerfile": llb.Scratch().File(llb.Mkfile("Dockerfile", dockerfileMode, []byte(spec.Dockerfile))),

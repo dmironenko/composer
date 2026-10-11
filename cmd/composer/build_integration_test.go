@@ -22,9 +22,9 @@ import (
 )
 
 const sourceDockerfile = `FROM busybox:1.37.0
-ARG COMPOSER_COMMIT
-LABEL io.composer.commit=$COMPOSER_COMMIT
-RUN case "$COMPOSER_COMMIT" in \
+ARG APP_COMMIT
+LABEL io.composer.commit=$APP_COMMIT
+RUN case "$APP_COMMIT" in \
     aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) printf 'source-one\n' > /source ;; \
     bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb) printf 'source-two\n' > /source ;; \
     *) exit 1 ;; esac

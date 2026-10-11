@@ -37,7 +37,7 @@ NGINX, HAProxy, БД и другие сервисы описываются то�
 - Образы и build cache хранит Docker; отдельный менеджер кэша Composer не нужен.
 - Source image определяется repository + полный commit SHA + отрендеренный Dockerfile.
 - Build завершается до инвалидирования applied marker и Up; ошибка build сохраняет прежний project.
-- Получение исходников и компиляция — в Dockerfile из GitOps; CLI передаёт COMPOSER_COMMIT и пустой build context.
+- Получение исходников и компиляция — в Dockerfile из GitOps; CLI передаёт APP_COMMIT и пустой build context.
 - source.auth относится только к GitOps. Credentials не передаются в Dockerfile.
 - Runtime build использует embedded BuildKit и проверяется adapter integration tests.
 - GitHub Actions не требуется: Composer сам читает Git, проверяет и применяет изменения.

@@ -33,14 +33,14 @@ hex-символов. `build.repository` поддерживает HTTPS и SSH, 
 FROM golang:1.26-alpine AS builder
 RUN apk add --no-cache git
 WORKDIR /src
-ARG COMPOSER_COMMIT
+ARG APP_COMMIT
 RUN git clone {{ quote .Vars.build.repository }} . \
-    && git checkout "$COMPOSER_COMMIT" \
+    && git checkout "$APP_COMMIT" \
     && CGO_ENABLED=0 go build -o /out/api .
 
 FROM scratch
-ARG COMPOSER_COMMIT
-LABEL org.opencontainers.image.revision=$COMPOSER_COMMIT
+ARG APP_COMMIT
+LABEL org.opencontainers.image.revision=$APP_COMMIT
 COPY --from=builder /out/api /app/api
 ```
 
@@ -51,7 +51,7 @@ COPY --from=builder /out/api /app/api
 ```
 
 Dockerfile получает Go template vars, включая `.Vars.build.repository` и
-`.Vars.build.commit`. Composer передаёт build arg `COMPOSER_COMMIT`; объявите
+`.Vars.build.commit`. Composer передаёт build arg `APP_COMMIT`; объявите
 `ARG` в нужном stage, чтобы использовать его. Другие build args не поддерживаются.
 
 Build context пустой. Исходники загружает сам Dockerfile; локальный `COPY . .`
