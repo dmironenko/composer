@@ -4,12 +4,8 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-
-	"filippo.io/age"
 
 	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops/internal/vars"
 )
@@ -84,57 +80,4 @@ func damageValue(t *testing.T, value []byte) (string, string) {
 	tampered := "age:" + base64.StdEncoding.EncodeToString(ciphertext)
 
 	return truncated, tampered
-}
-
-func TestEncryptRequiresMapping(t *testing.T) {
-	t.Parallel()
-
-	input := []byte("- private-marker\n")
-	if output, err := vars.Encrypt(input, "testdata/age-key.txt"); !errors.Is(err, vars.ErrInvalid) || output != nil {
-		t.Fatal("encryption must reject non-mapping input")
-	}
-}
-
-func TestDecryptRequiresMapping(t *testing.T) {
-	t.Parallel()
-
-	value, keyFile := encryptRaw(t, []byte("- private-marker\n"))
-
-	output, err := vars.Decrypt(value, keyFile)
-	if !errors.Is(err, vars.ErrEncrypted) || output != nil {
-		t.Fatal("decryption must reject non-mapping input")
-	}
-}
-
-func encryptRaw(t *testing.T, input []byte) ([]byte, string) {
-	t.Helper()
-
-	identity, err := age.GenerateX25519Identity()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var ciphertext bytes.Buffer
-
-	writer, err := age.Encrypt(&ciphertext, identity.Recipient())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err = writer.Write(input); err != nil {
-		t.Fatal(err)
-	}
-
-	if err = writer.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	root := t.TempDir()
-	if err = os.WriteFile(filepath.Join(root, "key"), []byte(identity.String()), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	value := []byte("age:" + base64.StdEncoding.EncodeToString(ciphertext.Bytes()))
-
-	return value, filepath.Join(root, "key")
 }

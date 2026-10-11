@@ -9,19 +9,22 @@ import (
 func TestSecretsCommands(t *testing.T) {
 	t.Parallel()
 
-	const (
-		keyFile   = "../../internal/app/composer/adapters/gitops/internal/vars/testdata/age-key.txt"
-		plaintext = "stage_token: demo-only\n"
-	)
+	const keyFile = "../../internal/app/composer/adapters/gitops/internal/vars/testdata/age-key.txt"
 
-	encrypted := runSecretsCommand(t, "encrypt", keyFile, plaintext)
-	if !strings.HasPrefix(encrypted, "age:") {
-		t.Fatal("encrypt must only output an encrypted value")
-	}
+	for _, plaintext := range []string{"some-token", "", " demo-only:$true\nsecond line\n\n"} {
+		t.Run(plaintext, func(t *testing.T) {
+			t.Parallel()
 
-	decrypted := runSecretsCommand(t, "decrypt", keyFile, encrypted)
-	if decrypted != plaintext {
-		t.Fatal("decrypt did not restore the YAML mapping")
+			encrypted := runSecretsCommand(t, "encrypt", keyFile, plaintext)
+			if !strings.HasPrefix(encrypted, "age:") {
+				t.Fatal("encrypt must only output an encrypted value")
+			}
+
+			decrypted := runSecretsCommand(t, "decrypt", keyFile, encrypted)
+			if decrypted != plaintext {
+				t.Fatal("decrypt did not restore the secret exactly")
+			}
+		})
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"strings"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -141,9 +142,12 @@ func stringMapKeys(values map[string]any) bool {
 
 func decryptValues(values map[string]any, keyFile string) error {
 	switch value := values["secrets"].(type) {
-	case nil, map[string]any:
+	case nil:
 		return nil
+	case map[string]any:
+		return decryptMap(value, keyFile)
 	case string:
+		// Read the earlier whole-block format so existing commits can still be reverted.
 		plaintext, err := Decrypt([]byte(value), keyFile)
 		if err != nil {
 			return err
@@ -160,4 +164,44 @@ func decryptValues(values map[string]any, keyFile string) error {
 	default:
 		return ErrEncrypted
 	}
+}
+
+// decryptTree visits only secrets; decrypted strings are never parsed or visited again.
+func decryptTree(value any, keyFile string) (any, error) {
+	switch value := value.(type) {
+	case map[string]any:
+		return value, decryptMap(value, keyFile)
+	case []any:
+		for index, child := range value {
+			decrypted, err := decryptTree(child, keyFile)
+			if err != nil {
+				return nil, err
+			}
+
+			value[index] = decrypted
+		}
+	case string:
+		if !strings.HasPrefix(value, secretPrefix) {
+			return value, nil
+		}
+
+		plaintext, err := Decrypt([]byte(value), keyFile)
+
+		return string(plaintext), err
+	}
+
+	return value, nil
+}
+
+func decryptMap(values map[string]any, keyFile string) error {
+	for key, child := range values {
+		decrypted, err := decryptTree(child, keyFile)
+		if err != nil {
+			return err
+		}
+
+		values[key] = decrypted
+	}
+
+	return nil
 }

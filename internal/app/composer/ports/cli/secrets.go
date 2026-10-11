@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -12,10 +11,10 @@ import (
 var errSecretKey = errors.New("--key-file is required")
 
 func secretsCommand(bootstrap Bootstrap) *cobra.Command {
-	cmd := &cobra.Command{Use: "secrets", Short: "Encrypt or decrypt a secrets block through stdin/stdout"}
+	cmd := &cobra.Command{Use: "secrets", Short: "Encrypt or decrypt a secret value through stdin/stdout"}
 	cmd.AddCommand(
-		secretCommand("encrypt", "Read a YAML mapping and print an encrypted value", bootstrap.EncryptSecrets),
-		secretCommand("decrypt", "Read an encrypted value and print its YAML mapping", bootstrap.DecryptSecrets),
+		secretCommand("encrypt", "Read a secret from stdin and print an encrypted value", bootstrap.EncryptSecrets),
+		secretCommand("decrypt", "Read an encrypted value and print the original secret", bootstrap.DecryptSecrets),
 	)
 
 	return cmd
@@ -41,7 +40,11 @@ func secretCommand(action, description string, transform func([]byte, string) ([
 				return fmt.Errorf("%s secrets: %w", action, err)
 			}
 
-			if _, err = fmt.Fprintln(cmd.OutOrStdout(), strings.TrimSuffix(string(output), "\n")); err != nil {
+			if action == "encrypt" {
+				output = append(output, '\n')
+			}
+
+			if _, err = cmd.OutOrStdout().Write(output); err != nil {
 				return fmt.Errorf("write secrets: %w", err)
 			}
 

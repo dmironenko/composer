@@ -6,7 +6,7 @@ import (
 	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops/internal/vars"
 )
 
-// EncryptSecrets encodes a YAML mapping for use as the secrets value in vars.
+// EncryptSecrets encrypts one secret value for use in vars.
 func EncryptSecrets(input []byte, keyFile string) ([]byte, error) {
 	output, err := vars.Encrypt(input, keyFile)
 	if err != nil {
@@ -16,7 +16,7 @@ func EncryptSecrets(input []byte, keyFile string) ([]byte, error) {
 	return output, nil
 }
 
-// DecryptSecrets decodes an encrypted secrets value into a YAML mapping.
+// DecryptSecrets decodes an encrypted secrets value into its original bytes.
 func DecryptSecrets(input []byte, keyFile string) ([]byte, error) {
 	output, err := vars.Decrypt(input, keyFile)
 	if err != nil {
