@@ -195,7 +195,7 @@ platform напрямую, без локальных allowlists Composer.
 перед отдельными prod/stage nginx. Готовый jonasal/nginx-certbot обслуживает
 HTTP-01, выпуск, продление и reload; собственных TLS scripts нет. Локально
 используется встроенный CA образа, сертификаты сохраняются в Docker volumes.
-Общий gateway читается из prod-ветки, внутренний stage nginx — из stage-ветки.
+Общий ingress nginx читается из prod-ветки, внутренний stage nginx — из stage-ветки.
 
 GitHub Actions не требуется. Composer читает настроенные ветки, валидирует
 snapshot и применяет изменения самостоятельно. Для отдельной проверки есть
