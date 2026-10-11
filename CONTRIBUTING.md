@@ -44,9 +44,8 @@ go test -tags=integration ./internal/app/composer/adapters/docker -count=1
 go test -race -tags=integration ./cmd/composer -count=1
 ```
 
-The [example acceptance tests](https://github.com/dmironenko/composer-example/tree/master/test)
-cover ingress and environment behavior. Run systemd tests only in a disposable
-Ubuntu VM as described in [docs/systemd.md](docs/systemd.md).
+Run systemd tests only in a disposable Ubuntu VM as described in
+[docs/systemd.md](docs/systemd.md).
 
 Never include live credentials, rendered state, or private configuration in issues,
 logs, or pull requests. Test age keys under `internal/app/composer/adapters/gitops/internal/vars/testdata`

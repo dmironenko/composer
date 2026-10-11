@@ -78,8 +78,7 @@ sudo bash /var/tmp/systemd-check.sh reboot-check /var/tmp/composer-systemd.<suff
 Проверяются install, экранирование пути YAML, повторная установка, stop/start,
 перезапуск после SIGKILL, config-only commit, сохранение чужого unit и автозапуск
 после реальной перезагрузки с прежним ID контейнера и ожидаемым HTTP-ответом.
-После проверки удалите тестовую VM. Для полного стенда с ingress, TLS,
-source builds и БД используйте [сценарий приёмки](../../composer-example/test/full/README.md).
+После проверки удалите тестовую VM.
 
 Формат unit и экранирование аргументов следуют
 [systemd.service](https://github.com/systemd/systemd/blob/main/man/systemd.service.xml).

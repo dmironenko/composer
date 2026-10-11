@@ -89,8 +89,4 @@ mockgen через `make go/generate`.
 и `--config "$PLATFORM_DIR/configs/go/golangci.yml"` (полная команда — в CONTRIBUTING.md).
 Docker tests создают только собственные projects/networks и сохраняют чужие ресурсы.
 Systemd проверяется в одноразовой Ubuntu VM через `test/systemd/check.sh`, включая reboot.
-Ingress-пример проверяется сценариями `../composer-example/test/` в отдельной
-installation на Linux/macOS: cold-start, routing, config-only, scale, revert и HTTP-01/renew через Pebble.
-Полная приёмка — `../composer-example/test/full/`: source builds, secrets,
-PostgreSQL, ingress, cache/revert, polling и reboot. Инструкция —
-`../composer-example/test/full/README.md`. Сценарии меняют только подготовленные fixtures.
+`composer-example` содержит только runnable GitOps-пример; тестовая инфраструктура в нём не хранится.
