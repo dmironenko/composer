@@ -11,7 +11,10 @@ import (
 	"filippo.io/age"
 )
 
-const secretPrefix = "age:"
+const (
+	secretPrefix       = "ENC["
+	legacySecretPrefix = "age:"
+)
 
 var errKey = errors.New("cannot read age identity: check key file")
 
@@ -37,12 +40,20 @@ func Encrypt(input []byte, keyFile string) ([]byte, error) {
 		return nil, errKey
 	}
 
-	return []byte(secretPrefix + base64.StdEncoding.EncodeToString(output.Bytes())), nil
+	return []byte(secretPrefix + base64.StdEncoding.EncodeToString(output.Bytes()) + "]"), nil
 }
 
 // Decrypt authenticates the entire value before returning its original bytes.
 func Decrypt(input []byte, keyFile string) ([]byte, error) {
-	encoded, ok := strings.CutPrefix(strings.TrimSpace(string(input)), secretPrefix)
+	value := strings.TrimSpace(string(input))
+
+	encoded, ok := strings.CutPrefix(value, secretPrefix)
+	if ok {
+		encoded, ok = strings.CutSuffix(encoded, "]")
+	} else {
+		encoded, ok = strings.CutPrefix(value, legacySecretPrefix)
+	}
+
 	if !ok {
 		return nil, ErrEncrypted
 	}
@@ -87,4 +98,14 @@ func readIdentity(keyFile string) (*age.X25519Identity, error) {
 	}
 
 	return identity, nil
+}
+
+func decryptString(value, keyFile string) (string, error) {
+	if !strings.HasPrefix(value, secretPrefix) && !strings.HasPrefix(value, legacySecretPrefix) {
+		return value, nil
+	}
+
+	plaintext, err := Decrypt([]byte(value), keyFile)
+
+	return string(plaintext), err
 }

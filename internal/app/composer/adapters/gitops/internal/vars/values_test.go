@@ -3,6 +3,8 @@ package vars_test
 import (
 	"errors"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -12,7 +14,8 @@ import (
 func TestReadEncryptedValues(t *testing.T) {
 	t.Parallel()
 
-	for _, plaintext := range []string{"some-token", "true", "123", "null", "", "age:literal", " x\ny\n\n"} {
+	cases := []string{"some-token", "true", "123", "null", "", "age:literal", "ENC[literal]", " x\ny\n\n"}
+	for _, plaintext := range cases {
 		t.Run(plaintext, func(t *testing.T) {
 			t.Parallel()
 			checkEncryptedValue(t, plaintext)
@@ -30,26 +33,33 @@ func checkEncryptedValue(t *testing.T, plaintext string) {
 		t.Fatal(err)
 	}
 
-	document := "app: {literal: 'age:not-encrypted'}\nsecrets:\n  token: " + string(ciphertext) +
-		"\n  database:\n    password: " + string(ciphertext) + "\n  list: [" + string(ciphertext) +
-		", {nested: " + string(ciphertext) + "}]\n  plain: readable\n  flag: false\n  absent: null\n"
+	encoded := strconv.Quote(string(ciphertext))
+	legacy := "age:" + strings.TrimSuffix(strings.TrimPrefix(string(ciphertext), "ENC["), "]")
+
+	document := "app: {literal: 'ENC[not-encrypted]'}\nsecrets:\n  token: " + encoded +
+		"\n  legacy: " + legacy + "\n  database:\n    password: " + encoded + "\n  list: [" + encoded +
+		", {nested: " + encoded + "}]\n  plain: readable\n  flag: false\n  absent: null\n"
 	files := fstest.MapFS{"base.yaml": {Data: []byte(document)}}
 
-	actual, exists, err := vars.Read(files, "base.yaml", keyFile)
-	if err != nil || !exists {
+	actual, _, err := vars.Read(files, "base.yaml", keyFile)
+	if err != nil {
 		t.Fatalf("read encrypted values: %v", err)
 	}
 
-	expected := map[string]any{
-		"app": map[string]any{"literal": "age:not-encrypted"},
+	expected := decryptedValues(plaintext)
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatal("decryption changed secret bytes, types, or unrelated vars")
+	}
+}
+
+func decryptedValues(plaintext string) map[string]any {
+	return map[string]any{
+		"app": map[string]any{"literal": "ENC[not-encrypted]"},
 		"secrets": map[string]any{
-			"token": plaintext, "database": map[string]any{"password": plaintext},
+			"token": plaintext, "legacy": plaintext, "database": map[string]any{"password": plaintext},
 			"list":  []any{plaintext, map[string]any{"nested": plaintext}},
 			"plain": "readable", "flag": false, "absent": nil,
 		},
-	}
-	if !reflect.DeepEqual(actual, expected) {
-		t.Fatal("decryption changed secret bytes, types, or unrelated vars")
 	}
 }
 
@@ -63,7 +73,8 @@ func TestReadLegacyBlock(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	files := fstest.MapFS{"base.yaml": {Data: []byte("secrets: " + string(ciphertext))}}
+	legacy := "age:" + strings.TrimSuffix(strings.TrimPrefix(string(ciphertext), "ENC["), "]")
+	files := fstest.MapFS{"base.yaml": {Data: []byte("secrets: " + legacy)}}
 
 	actual, exists, err := vars.Read(files, "base.yaml", keyFile)
 	if err != nil || !exists || !reflect.DeepEqual(actual, decode(t, "secrets: {stage_token: demo}")) {
@@ -76,6 +87,8 @@ func TestReadNestedDecryptionFailure(t *testing.T) {
 
 	for _, document := range []string{
 		"secrets: {database: {password: 'age:invalid'}}",
+		"secrets: {database: {password: 'ENC[invalid]'}}",
+		"secrets: {tokens: ['ENC[invalid']}",
 		"secrets: {tokens: ['age:invalid']}",
 	} {
 		files := fstest.MapFS{"base.yaml": {Data: []byte(document)}}

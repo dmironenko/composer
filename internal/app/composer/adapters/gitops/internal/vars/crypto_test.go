@@ -50,7 +50,8 @@ func TestDecryptRejectsDamagedValues(t *testing.T) {
 
 	cases := []struct{ name, value, key string }{
 		{name: "prefix", value: "private-marker", key: "age-key.txt"},
-		{name: "base64", value: "age:!private-marker", key: "age-key.txt"},
+		{name: "base64", value: "ENC[!private-marker]", key: "age-key.txt"},
+		{name: "missing closing bracket", value: strings.TrimSuffix(string(value), "]"), key: "age-key.txt"},
 		{name: "wrong key", value: string(value), key: "other-key.txt"},
 		{name: "truncated", value: truncated, key: "age-key.txt"},
 		{name: "tampered", value: tampered, key: "age-key.txt"},
@@ -70,14 +71,14 @@ func TestDecryptRejectsDamagedValues(t *testing.T) {
 func damageValue(t *testing.T, value []byte) (string, string) {
 	t.Helper()
 
-	ciphertext, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(string(value), "age:"))
+	ciphertext, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(strings.TrimPrefix(string(value), "ENC["), "]"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	truncated := "age:" + base64.StdEncoding.EncodeToString(ciphertext[:len(ciphertext)-1])
+	truncated := "ENC[" + base64.StdEncoding.EncodeToString(ciphertext[:len(ciphertext)-1]) + "]"
 	ciphertext[len(ciphertext)-1] ^= 1
-	tampered := "age:" + base64.StdEncoding.EncodeToString(ciphertext)
+	tampered := "ENC[" + base64.StdEncoding.EncodeToString(ciphertext) + "]"
 
 	return truncated, tampered
 }

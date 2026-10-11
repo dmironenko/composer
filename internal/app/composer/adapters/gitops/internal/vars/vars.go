@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"strings"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -181,13 +180,7 @@ func decryptTree(value any, keyFile string) (any, error) {
 			value[index] = decrypted
 		}
 	case string:
-		if !strings.HasPrefix(value, secretPrefix) {
-			return value, nil
-		}
-
-		plaintext, err := Decrypt([]byte(value), keyFile)
-
-		return string(plaintext), err
+		return decryptString(value, keyFile)
 	}
 
 	return value, nil

@@ -16,7 +16,7 @@ func TestSecretsCommands(t *testing.T) {
 			t.Parallel()
 
 			encrypted := runSecretsCommand(t, "encrypt", keyFile, plaintext)
-			if !strings.HasPrefix(encrypted, "age:") {
+			if !strings.HasPrefix(encrypted, "ENC[") || !strings.HasSuffix(encrypted, "]\n") {
 				t.Fatal("encrypt must only output an encrypted value")
 			}
 
