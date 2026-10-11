@@ -7,9 +7,8 @@ import (
 	"archive/tar"
 	"context"
 	"errors"
+	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -29,7 +28,7 @@ func TestBuildWithoutExecutables(t *testing.T) {
 
 	checkImageExists(t, ctx, docker, spec.Image(), false)
 
-	if err := docker.Build(ctx, spec, root); err != nil {
+	if err := docker.Build(ctx, spec); err != nil {
 		t.Fatal(err)
 	}
 
@@ -56,12 +55,14 @@ func buildFixture(t *testing.T) (*Client, domain.BuildSpec, string) {
 
 	spec := domain.BuildSpec{
 		Repository: root, Commit: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		Dockerfile: "FROM scratch\nARG COMPOSER_COMMIT\nLABEL io.composer.test.commit=$COMPOSER_COMMIT\nCOPY . /\n",
-	}
-	for name, content := range map[string]string{"marker": root, ".dockerignore": "ignored\n", "ignored": "private"} {
-		if writeErr := os.WriteFile(filepath.Join(root, name), []byte(content), 0o600); writeErr != nil {
-			t.Fatal(writeErr)
-		}
+		Dockerfile: fmt.Sprintf(`FROM busybox:1.37.0 AS builder
+RUN printf %%s %q > /marker
+FROM scratch
+ARG COMPOSER_COMMIT
+LABEL io.composer.test.commit=$COMPOSER_COMMIT
+COPY --from=builder /marker /marker
+COPY . /context/
+`, root),
 	}
 
 	t.Cleanup(func() {
@@ -144,7 +145,7 @@ func checkArchive(t *testing.T, archive *tar.Reader, expected string) {
 		t.Fatalf("copied marker: actual=%q expected=%q", files["marker"], expected)
 	}
 
-	for _, name := range []string{"ignored", "Dockerfile"} {
+	for _, name := range []string{"Dockerfile", "context/Dockerfile", "bin/sh"} {
 		if _, exists := files[name]; exists {
 			t.Fatalf("build input leaked into image: %s", name)
 		}

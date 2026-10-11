@@ -1,4 +1,4 @@
-// Package state persists deployment markers and provides private build workspaces.
+// Package state persists deployment markers.
 package state
 
 import (
@@ -115,25 +115,6 @@ func (s *Store) Save(project domain.Project) error {
 func (s *Store) Remove(project domain.Project) error {
 	if err := os.RemoveAll(project.Directory); err != nil {
 		return fmt.Errorf("remove deployment files: %w", err)
-	}
-
-	return nil
-}
-
-// CreateBuildContext creates a private temporary directory for source checkout.
-func (s *Store) CreateBuildContext() (string, error) {
-	directory, err := os.MkdirTemp("", "composer-build-")
-	if err != nil {
-		return "", fmt.Errorf("create build context: %w", err)
-	}
-
-	return directory, nil
-}
-
-// RemoveBuildContext removes a completed or failed source checkout.
-func (s *Store) RemoveBuildContext(directory string) error {
-	if err := os.RemoveAll(directory); err != nil {
-		return fmt.Errorf("remove build context: %w", err)
 	}
 
 	return nil

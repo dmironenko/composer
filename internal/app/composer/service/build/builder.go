@@ -3,7 +3,6 @@ package build
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"golang.org/x/sync/singleflight"
@@ -14,20 +13,18 @@ import (
 // Builder prepares absent images and coalesces concurrent requests for the same image.
 // Completed results are never cached: every later request consults Docker again.
 type Builder struct {
-	workspace Workspace
-	source    Source
-	backend   Backend
-	flights   singleflight.Group
+	backend Backend
+	flights singleflight.Group
 }
 
-// New injects the Git and Docker operations needed to build application images.
-func New(source Source, backend Backend, workspace Workspace) *Builder {
-	return &Builder{source: source, backend: backend, workspace: workspace}
+// New injects Docker operations needed to build application images.
+func New(backend Backend) *Builder {
+	return &Builder{backend: backend}
 }
 
-// Ensure returns only after the image operation and temporary directory cleanup finish.
-// The first caller owns a shared build's context. Other callers await that build,
-// including its cleanup, before reporting their own cancellation or its result.
+// Ensure returns only after the image operation finishes.
+// The first caller owns a shared build's context. Other callers await that build
+// before reporting their own cancellation or its result.
 func (b *Builder) Ensure(ctx context.Context, spec domain.BuildSpec) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("ensure image: %w", err)
@@ -52,7 +49,7 @@ func (b *Builder) Ensure(ctx context.Context, spec domain.BuildSpec) error {
 	return nil
 }
 
-func (b *Builder) ensure(ctx context.Context, spec domain.BuildSpec) (err error) {
+func (b *Builder) ensure(ctx context.Context, spec domain.BuildSpec) error {
 	exists, err := b.backend.HasImage(ctx, spec.Image())
 	if err != nil {
 		return fmt.Errorf("inspect image: %w", err)
@@ -62,18 +59,7 @@ func (b *Builder) ensure(ctx context.Context, spec domain.BuildSpec) (err error)
 		return nil
 	}
 
-	directory, err := b.workspace.CreateBuildContext()
-	if err != nil {
-		return fmt.Errorf("create build context: %w", err)
-	}
-
-	defer func() { err = errors.Join(err, b.workspace.RemoveBuildContext(directory)) }()
-
-	if err = b.source.Checkout(ctx, spec.Repository, spec.Commit, directory); err != nil {
-		return fmt.Errorf("checkout image source: %w", err)
-	}
-
-	if err = b.backend.Build(ctx, spec, directory); err != nil {
+	if err = b.backend.Build(ctx, spec); err != nil {
 		return fmt.Errorf("build image: %w", err)
 	}
 

@@ -19,7 +19,7 @@ Prod использует `base.yaml`, остальные окружения д�
 
 `run` перечитывает host YAML перед каждым проходом. Ошибка конфига сохраняет
 последние принятые настройки. Изменения `installation`, `state_dir`, `docker`
-и `build_auth` требуют перезапуска агента. Имена окружений начинаются со строчной
+требуют перезапуска агента. Имена окружений начинаются со строчной
 латинской буквы и содержат строчные латинские буквы, цифры и дефисы, до 63 символов.
 
 ## Применение изменений
@@ -80,11 +80,11 @@ internal/app/composer/
   service/
     reconcile/                snapshot → render → plan → apply, polling/retry
     deployment/               сравнение ревизий, удаления, network barrier, workers
-    build/                    image lookup → checkout → build, singleflight
+    build/                    image lookup → Dockerfile build, singleflight
   ports/
     cli/                      Cobra, flags, JSON DTO и ошибки для пользователя
   adapters/
-    git/                      snapshots, exact SHA checkout, SSH/HTTPS
+    git/                      GitOps snapshots, SSH/HTTPS
     gitops/                   vars/secrets/templates, configs, Compose validation
       internal/vars/          приватный YAML merge и age
     docker/                   Compose lifecycle, Engine и embedded BuildKit
@@ -117,7 +117,7 @@ flowchart TD
 
 - `reconcile`: Source, Renderer, Deployer, Inventory.
 - `deployment`: Inventory, Journal, Backend, Builder.
-- `build`: Source, Backend, Workspace.
+- `build`: Backend.
 
 `cmd/composer` создаёт адаптеры, передаёт им настройки и связывает зависимости.
 Он владеет host YAML, process lock и закрытием Docker client. Решения о polling,

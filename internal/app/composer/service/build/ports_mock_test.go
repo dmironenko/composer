@@ -17,44 +17,6 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockSource is a mock of Source interface.
-type MockSource struct {
-	ctrl     *gomock.Controller
-	recorder *MockSourceMockRecorder
-	isgomock struct{}
-}
-
-// MockSourceMockRecorder is the mock recorder for MockSource.
-type MockSourceMockRecorder struct {
-	mock *MockSource
-}
-
-// NewMockSource creates a new mock instance.
-func NewMockSource(ctrl *gomock.Controller) *MockSource {
-	mock := &MockSource{ctrl: ctrl}
-	mock.recorder = &MockSourceMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSource) EXPECT() *MockSourceMockRecorder {
-	return m.recorder
-}
-
-// Checkout mocks base method.
-func (m *MockSource) Checkout(ctx context.Context, repository, commit, directory string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Checkout", ctx, repository, commit, directory)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Checkout indicates an expected call of Checkout.
-func (mr *MockSourceMockRecorder) Checkout(ctx, repository, commit, directory any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Checkout", reflect.TypeOf((*MockSource)(nil).Checkout), ctx, repository, commit, directory)
-}
-
 // MockBackend is a mock of Backend interface.
 type MockBackend struct {
 	ctrl     *gomock.Controller
@@ -80,17 +42,17 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // Build mocks base method.
-func (m *MockBackend) Build(ctx context.Context, spec domain.BuildSpec, contextDir string) error {
+func (m *MockBackend) Build(ctx context.Context, spec domain.BuildSpec) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Build", ctx, spec, contextDir)
+	ret := m.ctrl.Call(m, "Build", ctx, spec)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Build indicates an expected call of Build.
-func (mr *MockBackendMockRecorder) Build(ctx, spec, contextDir any) *gomock.Call {
+func (mr *MockBackendMockRecorder) Build(ctx, spec any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Build", reflect.TypeOf((*MockBackend)(nil).Build), ctx, spec, contextDir)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Build", reflect.TypeOf((*MockBackend)(nil).Build), ctx, spec)
 }
 
 // HasImage mocks base method.
@@ -106,57 +68,4 @@ func (m *MockBackend) HasImage(ctx context.Context, image string) (bool, error) 
 func (mr *MockBackendMockRecorder) HasImage(ctx, image any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasImage", reflect.TypeOf((*MockBackend)(nil).HasImage), ctx, image)
-}
-
-// MockWorkspace is a mock of Workspace interface.
-type MockWorkspace struct {
-	ctrl     *gomock.Controller
-	recorder *MockWorkspaceMockRecorder
-	isgomock struct{}
-}
-
-// MockWorkspaceMockRecorder is the mock recorder for MockWorkspace.
-type MockWorkspaceMockRecorder struct {
-	mock *MockWorkspace
-}
-
-// NewMockWorkspace creates a new mock instance.
-func NewMockWorkspace(ctrl *gomock.Controller) *MockWorkspace {
-	mock := &MockWorkspace{ctrl: ctrl}
-	mock.recorder = &MockWorkspaceMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockWorkspace) EXPECT() *MockWorkspaceMockRecorder {
-	return m.recorder
-}
-
-// CreateBuildContext mocks base method.
-func (m *MockWorkspace) CreateBuildContext() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateBuildContext")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateBuildContext indicates an expected call of CreateBuildContext.
-func (mr *MockWorkspaceMockRecorder) CreateBuildContext() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateBuildContext", reflect.TypeOf((*MockWorkspace)(nil).CreateBuildContext))
-}
-
-// RemoveBuildContext mocks base method.
-func (m *MockWorkspace) RemoveBuildContext(directory string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveBuildContext", directory)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveBuildContext indicates an expected call of RemoveBuildContext.
-func (mr *MockWorkspaceMockRecorder) RemoveBuildContext(directory any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveBuildContext", reflect.TypeOf((*MockWorkspace)(nil).RemoveBuildContext), directory)
 }

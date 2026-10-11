@@ -19,29 +19,28 @@ import (
 	"go.yaml.in/yaml/v3"
 
 	"github.com/dmironenko/composer/internal/app/composer/domain"
-	"github.com/dmironenko/composer/test/gitserver"
 )
 
 const sourceDockerfile = `FROM busybox:1.37.0
 ARG COMPOSER_COMMIT
 LABEL io.composer.commit=$COMPOSER_COMMIT
-COPY message /source
+RUN case "$COMPOSER_COMMIT" in \
+    aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa) printf 'source-one\n' > /source ;; \
+    bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb) printf 'source-two\n' > /source ;; \
+    *) exit 1 ;; esac
 RUN mkdir /www
 CMD ["sh", "-c", "cat /source /etc/message > /www/index.html; exec httpd -f -p 8080 -h /www"]
 `
 
-//nolint:funlen,gocognit,gocyclo,cyclop,maintidx,paralleltest // Ordered Docker/SSH lifecycle with process environment.
+//nolint:funlen,gocognit,gocyclo,cyclop,maintidx,paralleltest // Ordered Docker lifecycle with process environment.
 func TestSourceBuildRollout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
 
 	root := t.TempDir()
-	sourcePath := filepath.Join(root, "source")
-	source := newBuildRepository(t, sourcePath)
-	first := sourceCommit(t, source, sourcePath, "source-one\n")
-	second := sourceCommit(t, source, sourcePath, "source-two\n")
-	repository, auth := gitserver.New(t, sourcePath)
+	first, second := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	installation := fmt.Sprintf("composer-source-%d", time.Now().UnixNano())
+	repository := "https://example.test/" + installation + ".git"
 	engine := dockerEngine(t, installation)
 	t.Cleanup(func() {
 		cleanup, stop := context.WithTimeout(context.Background(), 30*time.Second)
@@ -58,7 +57,7 @@ func TestSourceBuildRollout(t *testing.T) {
 			}
 		}
 	})
-	// Server uses an absolute git binary; Composer must need no external client tools.
+	// Source acquisition runs inside Docker; Composer needs no external client tools.
 	t.Setenv("PATH", t.TempDir())
 	t.Setenv("DOCKER_CONFIG", t.TempDir())
 
@@ -69,7 +68,6 @@ func TestSourceBuildRollout(t *testing.T) {
 	cfg.Source.Mode, cfg.Source.Path = "local", repoPath
 	cfg.Source.Branches = map[string]string{"prod": "master", "stage": "master"}
 	cfg.Source.PollInterval = time.Second
-	cfg.BuildAuth = authConfig(auth)
 	cfg.Docker.Host = engine.DaemonHost()
 
 	encoded, err := yaml.Marshal(cfg)
@@ -111,15 +109,6 @@ func TestSourceBuildRollout(t *testing.T) {
 
 	prod := item("prod", "source-one\nconfig-one")
 	stage := item("stage", "source-two\nconfig-one")
-	// Once both images exist, later operations must work without source credentials.
-	privateKey, err := os.ReadFile(auth.KeyFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err = os.Remove(auth.KeyFile); err != nil {
-		t.Fatal(err)
-	}
 
 	apply(first, "config-two")
 
@@ -146,15 +135,13 @@ func TestSourceBuildRollout(t *testing.T) {
 		t.Fatal("revert rebuilt image or changed stage")
 	}
 
-	writeFile(t, auth.KeyFile, string(privateKey))
-
 	for _, failure := range []struct{ name, file, content, restored string }{
 		{
 			name: "failed Dockerfile", file: "Dockerfile.tmpl",
 			content: sourceDockerfile + "\nRUN exit 42\n", restored: sourceDockerfile,
 		},
 		{
-			name: "missing source commit", file: "vars/base.yaml",
+			name: "rejected source commit", file: "vars/base.yaml",
 			content:  sourceBuildVars(repository, "ffffffffffffffffffffffffffffffffffffffff", "config-two"),
 			restored: sourceBuildVars(repository, first, "config-two"),
 		},
@@ -202,19 +189,6 @@ func newBuildRepository(t *testing.T, path string) *gogit.Repository {
 	return repo
 }
 
-func sourceCommit(t *testing.T, repo *gogit.Repository, path, message string) string {
-	t.Helper()
-	writeFile(t, filepath.Join(path, "message"), message)
-	commitAll(t, repo)
-
-	ref, err := repo.Head()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return ref.Hash().String()
-}
-
 func applySourceBuild(t *testing.T, ctx context.Context, host string) {
 	t.Helper()
 
@@ -245,17 +219,15 @@ compose:
 `, repository, commit, message)
 }
 
-//nolint:funlen,gocognit,gocyclo,cyclop,maintidx,paralleltest // Ordered Docker/SSH lifecycle.
+//nolint:funlen,gocognit,gocyclo,cyclop,maintidx,paralleltest // Ordered Docker lifecycle.
 func TestBranchDockerfileRollout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
 
 	root := t.TempDir()
-	sourcePath := filepath.Join(root, "source")
-	source := newBuildRepository(t, sourcePath)
-	commit := sourceCommit(t, source, sourcePath, "source-one\n")
-	repository, auth := gitserver.New(t, sourcePath)
+	commit := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	installation := fmt.Sprintf("composer-br-%d", time.Now().UnixNano())
+	repository := "https://example.test/" + installation + ".git"
 	engine := dockerEngine(t, installation)
 	changedDockerfile := sourceDockerfile + "\nRUN printf 'dockerfile-dev\\n' > /source\n"
 
@@ -312,7 +284,7 @@ func TestBranchDockerfileRollout(t *testing.T) {
 	cfg.Source.Branches = map[string]string{"prod": "master", "stage": "dev"}
 	cfg.Source.PollInterval = time.Second
 
-	cfg.BuildAuth, cfg.Docker.Host = authConfig(auth), engine.DaemonHost()
+	cfg.Docker.Host = engine.DaemonHost()
 	if err = writeConfig(host, cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -333,11 +305,7 @@ func TestBranchDockerfileRollout(t *testing.T) {
 	if actual := dockerContainers(t, ctx, engine, installation+"-prod-demo-api-", 1)[0]; actual.ID != prod.ID {
 		t.Fatal("dev Dockerfile restarted production")
 	}
-	// Promotion and revert must reuse Docker images even without source credentials.
-	if err = os.Remove(auth.KeyFile); err != nil {
-		t.Fatal(err)
-	}
-
+	// Promotion and revert reuse Docker images.
 	dev, err := repo.Head()
 	if err != nil {
 		t.Fatal(err)

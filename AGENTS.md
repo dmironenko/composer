@@ -37,7 +37,8 @@ NGINX, HAProxy, БД и другие сервисы описываются то�
 - Образы и build cache хранит Docker; отдельный менеджер кэша Composer не нужен.
 - Source image определяется repository + полный commit SHA + отрендеренный Dockerfile.
 - Build завершается до инвалидирования applied marker и Up; ошибка build сохраняет прежний project.
-- Исходники читаются через build_auth отдельно от source.auth; credentials не входят в GitOps.
+- Получение исходников и компиляция — в Dockerfile из GitOps; CLI передаёт COMPOSER_COMMIT и пустой build context.
+- source.auth относится только к GitOps. Credentials не передаются в Dockerfile.
 - Runtime build использует embedded BuildKit и проверяется adapter integration tests.
 - GitHub Actions не требуется: Composer сам читает Git, проверяет и применяет изменения.
 - Код не знает demo-приложений. Init создаёт пустую структуру, fixtures живут в тестах.
@@ -67,8 +68,8 @@ Compose SDK model существует только внутри GitOps/Docker a
 service не разбирает содержимое. Hash считается по прежнему normalized model.
 Нельзя прятать SDK в any, type alias или callback внутри domain.
 
-Файловые markers и временные build directories обслуживает adapters/state.
-Service решает порядок операций через Inventory/Journal/Workspace; не выполняет
+Файловые markers обслуживает adapters/state.
+Service решает порядок операций через Inventory/Journal; не выполняет
 IO самостоятельно. CLI маппит domain.Report в публичный DTO без manifest/secrets.
 Не добавляй DI framework, общий registry или дублирующую Compose schema.
 

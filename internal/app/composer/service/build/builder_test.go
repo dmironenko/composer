@@ -18,11 +18,10 @@ func TestEnsure(t *testing.T) {
 	t.Parallel()
 
 	cases := []ensureCase{
-		{name: "existing image skips source and build", exists: true},
+		{name: "existing image skips build", exists: true},
 		{name: "missing image is built"},
 		{name: "inspect failure", inspectErr: io.ErrUnexpectedEOF},
-		{name: "checkout failure cleans context", checkoutErr: io.ErrUnexpectedEOF},
-		{name: "build failure cleans context", buildErr: io.ErrUnexpectedEOF},
+		{name: "build failure", buildErr: io.ErrUnexpectedEOF},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -36,19 +35,14 @@ func TestFailedBuildCanRetry(t *testing.T) {
 	t.Parallel()
 
 	controller := gomock.NewController(t)
-	source := NewMockSource(controller)
 	backend := NewMockBackend(controller)
-	workspace := NewMockWorkspace(controller)
 	spec := fixture()
 
-	workspace.EXPECT().CreateBuildContext().Return("checkout", nil).AnyTimes()
-	workspace.EXPECT().RemoveBuildContext("checkout").Return(nil).AnyTimes()
-	builder := build.New(source, backend, workspace)
+	builder := build.New(backend)
 
 	for _, expectedErr := range []error{io.ErrUnexpectedEOF, nil} {
 		backend.EXPECT().HasImage(gomock.Any(), spec.Image()).Return(false, nil)
-		source.EXPECT().Checkout(gomock.Any(), spec.Repository, spec.Commit, gomock.Any()).Return(nil)
-		backend.EXPECT().Build(gomock.Any(), spec, gomock.Any()).Return(expectedErr)
+		backend.EXPECT().Build(gomock.Any(), spec).Return(expectedErr)
 
 		if err := builder.Ensure(t.Context(), spec); !errors.Is(err, expectedErr) {
 			t.Fatalf("expected %v, got %v", expectedErr, err)
@@ -60,21 +54,15 @@ func TestDockerRemainsImageAuthority(t *testing.T) {
 	t.Parallel()
 
 	controller := gomock.NewController(t)
-	source := NewMockSource(controller)
 	backend := NewMockBackend(controller)
-	workspace := NewMockWorkspace(controller)
 	spec := fixture()
 	gomock.InOrder(
 		backend.EXPECT().HasImage(gomock.Any(), spec.Image()).Return(true, nil),
 		backend.EXPECT().HasImage(gomock.Any(), spec.Image()).Return(false, nil),
-		source.EXPECT().Checkout(gomock.Any(), spec.Repository, spec.Commit, gomock.Any()).Return(nil),
-		backend.EXPECT().Build(gomock.Any(), spec, gomock.Any()).Return(nil),
+		backend.EXPECT().Build(gomock.Any(), spec).Return(nil),
 	)
 
-	workspace.EXPECT().CreateBuildContext().Return("checkout", nil).AnyTimes()
-	workspace.EXPECT().RemoveBuildContext("checkout").Return(nil).AnyTimes()
-
-	builder := build.New(source, backend, workspace)
+	builder := build.New(backend)
 	for range 2 {
 		checkError(t, builder.Ensure(t.Context(), spec), nil)
 	}
@@ -105,7 +93,7 @@ func TestWaiterCancellation(t *testing.T) {
 		name        string
 		cancelOwner bool
 	}{
-		{name: "waiter cancellation waits for shared cleanup"},
+		{name: "waiter cancellation waits for shared build"},
 		{name: "owner cancellation stops shared build", cancelOwner: true},
 	}
 	for _, tc := range cases {
@@ -120,7 +108,7 @@ func TestCancelledRequestSkipsDependencies(t *testing.T) {
 	t.Parallel()
 
 	controller := gomock.NewController(t)
-	builder := build.New(NewMockSource(controller), NewMockBackend(controller), NewMockWorkspace(controller))
+	builder := build.New(NewMockBackend(controller))
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
@@ -130,44 +118,26 @@ func TestCancelledRequestSkipsDependencies(t *testing.T) {
 }
 
 type ensureCase struct {
-	name        string
-	exists      bool
-	inspectErr  error
-	checkoutErr error
-	buildErr    error
+	name       string
+	exists     bool
+	inspectErr error
+	buildErr   error
 }
 
 func testEnsure(t *testing.T, tc ensureCase) {
 	t.Helper()
 
 	controller := gomock.NewController(t)
-	source := NewMockSource(controller)
 	backend := NewMockBackend(controller)
-	workspace := NewMockWorkspace(controller)
 	spec := fixture()
 	backend.EXPECT().HasImage(t.Context(), spec.Image()).Return(tc.exists, tc.inspectErr)
 
-	var directory string
-
 	if !tc.exists && tc.inspectErr == nil {
-		workspace.EXPECT().CreateBuildContext().Return("checkout", nil)
-		workspace.EXPECT().RemoveBuildContext("checkout").Return(nil)
-		source.EXPECT().Checkout(t.Context(), spec.Repository, spec.Commit, gomock.Any()).DoAndReturn(
-			func(_ context.Context, _, _, path string) error {
-				directory = path
-
-				return tc.checkoutErr
-			},
-		)
-
-		if tc.checkoutErr == nil {
-			backend.EXPECT().Build(t.Context(), spec, gomock.Cond(func(path string) bool { return path == directory })).
-				Return(tc.buildErr)
-		}
+		backend.EXPECT().Build(t.Context(), spec).Return(tc.buildErr)
 	}
 
-	expectedErr := cmp.Or(tc.inspectErr, tc.checkoutErr, tc.buildErr)
-	checkError(t, build.New(source, backend, workspace).Ensure(t.Context(), spec), expectedErr)
+	expectedErr := cmp.Or(tc.inspectErr, tc.buildErr)
+	checkError(t, build.New(backend).Ensure(t.Context(), spec), expectedErr)
 }
 
 func testConcurrentBuilds(t *testing.T, different bool) {
@@ -255,18 +225,13 @@ func blockedBuilder(t *testing.T, count int) (*build.Builder, <-chan struct{}, c
 	t.Helper()
 
 	controller := gomock.NewController(t)
-	source := NewMockSource(controller)
 	backend := NewMockBackend(controller)
-	workspace := NewMockWorkspace(controller)
 	started := make(chan struct{}, count)
 	release := make(chan struct{})
 
-	workspace.EXPECT().CreateBuildContext().Return("checkout", nil).Times(count)
-	workspace.EXPECT().RemoveBuildContext("checkout").Return(nil).Times(count)
 	backend.EXPECT().HasImage(gomock.Any(), gomock.Any()).Return(false, nil).Times(count)
-	source.EXPECT().Checkout(gomock.Any(), fixture().Repository, gomock.Any(), gomock.Any()).Return(nil).Times(count)
-	backend.EXPECT().Build(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ domain.BuildSpec, _ string) error {
+	backend.EXPECT().Build(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, _ domain.BuildSpec) error {
 			started <- struct{}{}
 
 			// Finishing backend work remains owned by Ensure even after cancellation.
@@ -276,7 +241,7 @@ func blockedBuilder(t *testing.T, count int) (*build.Builder, <-chan struct{}, c
 		},
 	).Times(count)
 
-	return build.New(source, backend, workspace), started, release
+	return build.New(backend), started, release
 }
 
 func checkError(t *testing.T, err, expectedErr error) {
@@ -300,37 +265,6 @@ func checkPending(t *testing.T, results ...<-chan error) {
 	}
 }
 
-func TestWorkspaceFailure(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name                 string
-		createErr, removeErr error
-	}{
-		{name: "creation failure stops checkout", createErr: io.ErrUnexpectedEOF},
-		{name: "cleanup failure is reported", removeErr: io.ErrClosedPipe},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			controller := gomock.NewController(t)
-			source, backend, workspace := NewMockSource(controller), NewMockBackend(controller), NewMockWorkspace(controller)
-			spec := fixture()
-			backend.EXPECT().HasImage(t.Context(), spec.Image()).Return(false, nil)
-			workspace.EXPECT().CreateBuildContext().Return("checkout", tc.createErr)
-
-			if tc.createErr == nil {
-				checked := source.EXPECT().Checkout(t.Context(), spec.Repository, spec.Commit, "checkout").Return(nil)
-				built := backend.EXPECT().Build(t.Context(), spec, "checkout").Return(nil).After(checked)
-				workspace.EXPECT().RemoveBuildContext("checkout").Return(tc.removeErr).After(built)
-			}
-
-			expectedErr := cmp.Or(tc.createErr, tc.removeErr)
-			checkError(t, build.New(source, backend, workspace).Ensure(t.Context(), spec), expectedErr)
-		})
-	}
-}
-
 func TestInvalidCommitSkipsDependencies(t *testing.T) {
 	t.Parallel()
 
@@ -343,7 +277,7 @@ func TestInvalidCommitSkipsDependencies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			controller := gomock.NewController(t)
-			builder := build.New(NewMockSource(controller), NewMockBackend(controller), NewMockWorkspace(controller))
+			builder := build.New(NewMockBackend(controller))
 			spec := fixture()
 			spec.Commit = tc.commit
 			checkError(t, builder.Ensure(t.Context(), spec), domain.ErrInvalid)

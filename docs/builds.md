@@ -1,7 +1,8 @@
 # Сборка приложений из Git
 
-Composer получает исходники указанного commit и собирает образ по `Dockerfile.tmpl`
-из GitOps-репозитория. Образы и кэш сборки хранит Docker; автоматического удаления нет.
+Версия приложения задаётся в GitOps-репозитории. Его `Dockerfile.tmpl` получает
+исходники и компилирует приложение; Composer запускает сборку через Docker.
+Образы и кэш сборки хранит Docker; автоматического удаления нет.
 
 ## Файлы приложения
 
@@ -29,10 +30,13 @@ hex-символов. `build.repository` поддерживает HTTPS и SSH, 
 Пример `Dockerfile.tmpl` для Go-приложения с main package в корне исходников:
 
 ```dockerfile
-FROM golang:1.26 AS builder
+FROM golang:1.26-alpine AS builder
+RUN apk add --no-cache git
 WORKDIR /src
-COPY . .
-RUN CGO_ENABLED=0 go build -o /out/api .
+ARG COMPOSER_COMMIT
+RUN git clone {{ quote .Vars.build.repository }} . \
+    && git checkout "$COMPOSER_COMMIT" \
+    && CGO_ENABLED=0 go build -o /out/api .
 
 FROM scratch
 ARG COMPOSER_COMMIT
@@ -50,14 +54,15 @@ Dockerfile получает Go template vars, включая `.Vars.build.reposi
 `.Vars.build.commit`. Composer передаёт build arg `COMPOSER_COMMIT`; объявите
 `ARG` в нужном stage, чтобы использовать его. Другие build args не поддерживаются.
 
-Build context содержит дерево исходников выбранного SHA без `.git`.
-Composer выполняет checkout до сборки и передаёт Dockerfile отдельно.
+Build context пустой. Исходники загружает сам Dockerfile; локальный `COPY . .`
+не передаёт файлы из GitOps или с сервера. Для multi-stage сборки используйте
+`COPY --from=builder`.
 
 ## Образы, обновление и откат
 
 Тег `composer/build:<sha256>` зависит от repository, commit и отрендеренного
 Dockerfile. Если образ уже есть в Docker, Composer использует его без checkout
-и сборки. Иначе собирает из временного каталога и удаляет каталог после операции.
+и сборки. Иначе выполняет Dockerfile.
 Одновременные сборки одного тега объединяются.
 
 Общий template подставляет образ и `pull_policy: never` сервисам без своего `image`.
@@ -69,8 +74,8 @@ Dockerfile. Если образ уже есть в Docker, Composer исполь
 При revert Composer использует сохранившийся образ или собирает его заново.
 Успешно применённые проекты без изменений пропускаются.
 
-Изменение базового образа за тем же тегом не вызывает пересборку. Для воспроизводимости
-закрепляйте базовые образы по digest и версии зависимостей, загружаемых при сборке.
+Изменение базового образа за тем же тегом не вызывает пересборку. Закрепляйте
+версии базовых образов и зависимостей, загружаемых при сборке.
 
 ## Stage и выпуск
 
@@ -88,37 +93,20 @@ build:
 Этот override продолжает действовать после merge. Чтобы вернуть общий SHA,
 перенесите его в `base.yaml` и удалите override, сохранив `stage.yaml` хотя бы с `{}`.
 
-## Доступ к приватным исходникам
+## Доступ к исходникам
 
-`source.auth` задаёт доступ к GitOps-репозиторию, а `build_auth` в host YAML
-задаёт доступ ко всем репозиториям исходников этой installation.
+Пример использует публичный HTTPS. `source.auth` относится только к GitOps-репозиторию.
+Composer не передаёт ключи, SSH agent или токены внутрь Dockerfile и не предоставляет
+BuildKit secret/SSH mounts. Приватный clone с такой авторизацией пока не поддерживается.
+Не подставляйте credentials в Dockerfile через vars: они попадут в инструкции сборки.
 
-SSH:
-
-```yaml
-build_auth:
-  type: ssh
-  key_file: keys/build_ed25519
-  known_hosts_file: keys/known_hosts
-```
-
-HTTPS:
-
-```yaml
-build_auth:
-  type: https
-  token_file: keys/build_token
-```
-
-Пути разрешаются относительно host YAML; ключи и токен хранятся вне Git.
-Для публичного HTTPS `build_auth` не нужен. SSH требует явных key и known_hosts;
-SSH agent не используется. Git-сервер должен разрешать fetch указанного SHA.
-Submodules не поддерживаются; вместо объектов Git LFS останутся файлы-указатели.
+При переходе со старого механизма удалите `build_auth` из host YAML и перенесите
+checkout из CLI в Dockerfile, как в примере выше.
 
 ## Сборка и проверка
 
 Docker Engine должен предоставлять embedded BuildKit endpoints `/grpc` и `/session`.
-Composer использует go-git и BuildKit без внешних `git`, `ssh` и `buildx`.
+Composer обращается к BuildKit через SDK; `git` для clone устанавливается в builder stage.
 Registry credentials читаются из Docker config; настроенный credential helper
 должен быть установлен.
 

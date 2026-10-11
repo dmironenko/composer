@@ -75,7 +75,7 @@ func openRuntime(cfg hostConfig, configPath, action string) (*reconcile.Runner, 
 		}
 
 		closeRuntime = client.Close
-		builder := build.New(git.NewRepository(gitAuth(cfg.BuildAuth)), client, store)
+		builder := build.New(client)
 		deployer = deployment.New(client, builder, store)
 	}
 
@@ -161,9 +161,9 @@ func (c runtimeConfig) Load() (reconcile.Settings, error) {
 	}
 
 	sameRuntime := cfg.Installation == c.initial.Installation && cfg.StateDir == c.initial.StateDir &&
-		cfg.Docker == c.initial.Docker && cfg.BuildAuth == c.initial.BuildAuth
+		cfg.Docker == c.initial.Docker
 	if !sameRuntime {
-		return reconcile.Settings{}, invalid("installation, state_dir, docker and build_auth changes require restart")
+		return reconcile.Settings{}, invalid("installation, state_dir and docker changes require restart")
 	}
 
 	return cfg.settings(), nil

@@ -34,7 +34,6 @@ type hostConfig struct {
 	StateDir     string          `yaml:"state_dir"`
 	AgeKeyFile   string          `yaml:"age_key_file,omitempty"`
 	Docker       dockerConfig    `yaml:"docker"`
-	BuildAuth    authConfig      `yaml:"build_auth,omitempty"`
 	Reconcile    reconcileConfig `yaml:"reconcile"`
 }
 
@@ -137,7 +136,7 @@ func (c hostConfig) Validate() error {
 	}
 
 	return errors.Join(
-		c.Reconcile.validate(), c.Source.validate(), c.BuildAuth.validate(),
+		c.Reconcile.validate(), c.Source.validate(),
 	)
 }
 
@@ -145,7 +144,6 @@ func (c *hostConfig) resolvePaths(base string) error {
 	for _, field := range []*string{
 		&c.StateDir, &c.AgeKeyFile, &c.Source.Path, &c.Source.Auth.KeyFile,
 		&c.Source.Auth.KnownHostsFile, &c.Source.Auth.TokenFile,
-		&c.BuildAuth.KeyFile, &c.BuildAuth.KnownHostsFile, &c.BuildAuth.TokenFile,
 	} {
 		if *field != "" && !filepath.IsAbs(*field) {
 			*field = filepath.Join(base, *field)

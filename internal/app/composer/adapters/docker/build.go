@@ -11,7 +11,6 @@ import (
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/session"
 	"github.com/moby/buildkit/session/auth/authprovider"
-	"github.com/tonistiigi/fsutil"
 
 	"github.com/dmironenko/composer/internal/app/composer/domain"
 )
@@ -30,14 +29,12 @@ func (c *Client) HasImage(ctx context.Context, image string) (bool, error) {
 	return true, nil
 }
 
-// Build sends a checked-out source tree to Docker's embedded BuildKit.
-func (c *Client) Build(ctx context.Context, spec domain.BuildSpec, contextDir string) (err error) {
-	const dockerfileMode = 0o600
-
-	files, err := fsutil.NewFS(contextDir)
-	if err != nil {
-		return fmt.Errorf("open build context: %w", err)
-	}
+// Build executes the rendered Dockerfile with an empty context in Docker's embedded BuildKit.
+func (c *Client) Build(ctx context.Context, spec domain.BuildSpec) (err error) {
+	const (
+		dockerfileMode = 0o600
+		contextMode    = 0o755
+	)
 
 	builder, err := c.buildkit(ctx)
 	if err != nil {
@@ -50,10 +47,10 @@ func (c *Client) Build(ctx context.Context, spec domain.BuildSpec, contextDir st
 		Frontend:      "dockerfile.v0",
 		FrontendAttrs: map[string]string{"build-arg:COMPOSER_COMMIT": spec.Commit},
 		FrontendInputs: map[string]llb.State{
+			"context":    llb.Scratch().File(llb.Mkdir("/", contextMode)),
 			"dockerfile": llb.Scratch().File(llb.Mkfile("Dockerfile", dockerfileMode, []byte(spec.Dockerfile))),
 		},
-		LocalMounts: map[string]fsutil.FS{"context": files},
-		Exports:     []buildkit.ExportEntry{{Type: "moby", Attrs: map[string]string{"name": spec.Image()}}},
+		Exports: []buildkit.ExportEntry{{Type: "moby", Attrs: map[string]string{"name": spec.Image()}}},
 		Session: []session.Attachable{authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{
 			AuthConfigProvider: authprovider.LoadAuthConfig(c.cli.ConfigFile()),
 		})},

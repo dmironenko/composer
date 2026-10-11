@@ -23,8 +23,7 @@ import (
 func TestHTTPSAuthentication(t *testing.T) {
 	root := t.TempDir()
 	repo := newRepository(t, root, "release/source")
-	allowCommitFetch(t, repo)
-	commit := commitFile(t, repo, root, "version.txt", "selected")
+	commitFile(t, repo, root, "version.txt", "selected")
 	commitFile(t, repo, root, "version.txt", "branch moved")
 	server := httpsRepository(t, root)
 	tokenFile := filepath.Join(t.TempDir(), "token")
@@ -38,37 +37,33 @@ func TestHTTPSAuthentication(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			checkHTTPSAuthentication(t, source, state, commit.String(), token == "composer-test-token")
+			checkHTTPSAuthentication(t, source, state, token == "composer-test-token")
 		})
 	}
 
 	t.Run("public", func(t *testing.T) {
 		source.URL, source.Auth = server+"/public/.git", git.Auth{Type: "none"}
-		checkHTTPSAuthentication(t, source, t.TempDir(), commit.String(), true)
+		checkHTTPSAuthentication(t, source, t.TempDir(), true)
 	})
 }
 
-func checkHTTPSAuthentication(t *testing.T, source git.SourceConfig, state, commit string, authorized bool) {
+func checkHTTPSAuthentication(t *testing.T, source git.SourceConfig, state string, authorized bool) {
 	t.Helper()
 
 	snapshot, readErr := git.New(source, state).Read(t.Context())
-	directory := t.TempDir()
-
-	checkoutErr := git.NewRepository(source.Auth).Checkout(t.Context(), source.URL, commit, directory)
 	if !authorized {
-		if !errors.Is(readErr, git.ErrFetch) || snapshot.Root != "" || checkoutErr == nil {
-			t.Fatalf("unauthorized fetch: snapshot=%v read=%v checkout=%v", snapshot, readErr, checkoutErr)
+		if !errors.Is(readErr, git.ErrFetch) || snapshot.Root != "" {
+			t.Fatalf("unauthorized fetch: snapshot=%v read=%v", snapshot, readErr)
 		}
 
 		return
 	}
 
-	if readErr != nil || checkoutErr != nil {
-		t.Fatalf("authenticated fetch: read=%v checkout=%v", readErr, checkoutErr)
+	if readErr != nil {
+		t.Fatalf("authenticated fetch: read=%v", readErr)
 	}
 
 	assertFile(t, filepath.Join(snapshot.Root, "version.txt"), "branch moved")
-	assertFile(t, filepath.Join(directory, "version.txt"), "selected")
 }
 
 //nolint:maintidx // One local fixture owns the backend, TLS listener, authentication and transport cleanup.
