@@ -1,0 +1,19 @@
+{{- $compose := .Vars.compose -}}
+name: {{ quote .Runtime.ProjectName }}
+services:
+{{- range $name, $service := $compose.services }}
+  {{ quote $name }}:
+{{- $defaults := dict "restart" "always" -}}
+{{- if and $.Runtime.Image (not (get $service "image")) -}}
+{{- $defaults = merge $defaults (dict "image" $.Runtime.Image "pull_policy" "never") -}}
+{{- end }}
+{{ toYAML (merge $defaults $service) | indent 4 }}
+{{- end }}
+networks:
+{{ toYAML (merge (dict "default" (dict "external" true "name" .Runtime.NetworkName)) (get $compose "networks")) | indent 2 }}
+{{- range $name, $value := $compose }}
+{{- if and (ne $name "services") (ne $name "networks") (ne $name "name") }}
+{{ quote $name }}:
+{{ toYAML $value | indent 2 }}
+{{- end }}
+{{- end }}

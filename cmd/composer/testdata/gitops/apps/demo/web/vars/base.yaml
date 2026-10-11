@@ -1,0 +1,18 @@
+message: "web: production"
+compose:
+  services:
+    web-http:
+      image: busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+      command:
+        - sh
+        - -c
+        - mkdir -p /tmp/www && cp /etc/app/message.txt /tmp/www/index.html && exec httpd -f -p 8080 -h /tmp/www
+      volumes:
+        - ./configs/message.txt:/etc/app/message.txt:ro
+      deploy:
+        replicas: 1
+      healthcheck:
+        test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080]
+        interval: 2s
+        timeout: 1s
+        retries: 10

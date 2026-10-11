@@ -1,0 +1,9 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Intentionally public age identities used only by SOPS tests; see testdata/README.md"
+paths = [
+  '''(^|/)internal/app/composer/adapters/gitops/internal/vars/testdata/age-key\.txt$''',
+  '''(^|/)internal/app/composer/adapters/gitops/internal/vars/testdata/other-key\.txt$''',
+]

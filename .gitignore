@@ -1,0 +1,13 @@
+/bin/
+/composer.local.yaml
+*.test
+coverage.out
+.DS_Store
+/vendor/
+*.agekey
+*.pem
+*.key
+.env
+.env.*
+/state/
+*-state/
