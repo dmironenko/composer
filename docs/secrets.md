@@ -33,12 +33,13 @@ age_key_file: /etc/composer/age.txt
 ```yaml
 creation_rules:
   - path_regex: ^apps/[^/]+/[^/]+/vars/(base|stage)\.yaml$
-    encrypted_regex: ^app$
+    encrypted_regex: ^secrets$
     age: age1… # замените результатом age-keygen -y
 ```
 
-Правило шифрует значения внутри `app`; без `encrypted_regex` шифруются все значения.
-Имена ключей остаются видимыми. `.sops.yaml` хранится в Git.
+Правило шифрует значения внутри `secrets`; без `encrypted_regex` шифруются все значения.
+Имена ключей остаются видимыми. `.sops.yaml` хранится в Git. Блок `secrets`
+располагайте внизу vars-файла, перед служебным блоком `sops`, который добавляет SOPS.
 
 Пример `apps/demo/api/vars/base.yaml` до шифрования:
 
@@ -47,7 +48,6 @@ app:
   listen: :8080
   database:
     host: db
-    password: replace-me
 
 compose:
   services:
@@ -55,12 +55,16 @@ compose:
       image: your-app:version
       command: /app/server --config /etc/app/config.yaml
       volumes: ["./configs/config.yaml:/etc/app/config.yaml:ro"]
+
+secrets:
+  database:
+    password: replace-me
 ```
 
-В `configs/config.yaml.tmpl` достаточно одной строки:
+В `configs/config.yaml.tmpl` объедините настройки с секретами:
 
 ```gotemplate
-{{ .Vars.app | toYAML }}
+{{ merge .Vars.app .Secrets | toYAML }}
 ```
 
 Из корня GitOps-репозитория зашифруйте файл перед первым commit:
@@ -76,7 +80,7 @@ SOPS_AGE_KEY_FILE="$HOME/.config/composer/age.txt" sops edit apps/demo/api/vars/
 ```
 
 Overrides шифруются так же. `stage.yaml` может содержать только изменяемое поле,
-например `app.database.password`.
+например `secrets.database.password`.
 
 ## Применение
 
