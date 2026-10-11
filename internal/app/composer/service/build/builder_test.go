@@ -148,7 +148,7 @@ func testConcurrentBuilds(t *testing.T, different bool) {
 	count := 1
 
 	if different {
-		second.Commit = "2222222222222222222222222222222222222222"
+		second.Ref = "v2.0.0"
 		count++
 	}
 
@@ -217,7 +217,7 @@ func testWaiterCancellation(t *testing.T, cancelOwner bool) {
 func fixture() domain.BuildSpec {
 	return domain.BuildSpec{
 		Repository: "https://example.test/repository.git",
-		Commit:     "1111111111111111111111111111111111111111", Dockerfile: "FROM scratch\n",
+		Ref:        "v1.0.0", Dockerfile: "FROM scratch\n",
 	}
 }
 
@@ -265,12 +265,11 @@ func checkPending(t *testing.T, results ...<-chan error) {
 	}
 }
 
-func TestInvalidCommitSkipsDependencies(t *testing.T) {
+func TestInvalidRefSkipsDependencies(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct{ name, commit string }{
-		{name: "branch", commit: "master"},
-		{name: "abbreviated revision", commit: "abcdef1"},
+	cases := []struct{ name, ref string }{
+		{name: "whitespace", ref: " \n\t"},
 		{name: "missing revision"},
 	}
 	for _, tc := range cases {
@@ -279,7 +278,7 @@ func TestInvalidCommitSkipsDependencies(t *testing.T) {
 			controller := gomock.NewController(t)
 			builder := build.New(NewMockBackend(controller))
 			spec := fixture()
-			spec.Commit = tc.commit
+			spec.Ref = tc.ref
 			checkError(t, builder.Ensure(t.Context(), spec), domain.ErrInvalid)
 		})
 	}

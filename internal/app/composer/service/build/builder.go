@@ -30,8 +30,8 @@ func (b *Builder) Ensure(ctx context.Context, spec domain.BuildSpec) error {
 		return fmt.Errorf("ensure image: %w", err)
 	}
 
-	if !spec.ValidCommit() {
-		return fmt.Errorf("build commit must be a full lowercase Git SHA-1: %w", domain.ErrInvalid)
+	if !spec.ValidRef() {
+		return fmt.Errorf("build ref must be nonempty: %w", domain.ErrInvalid)
 	}
 
 	_, err, _ := b.flights.Do(spec.Image(), func() (any, error) {

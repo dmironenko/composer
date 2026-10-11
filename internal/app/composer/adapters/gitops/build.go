@@ -22,9 +22,9 @@ func prepareBuild(files fs.FS, folder string, data *templateData, project *domai
 
 	repository, _ := values["repository"].(string)
 
-	commit, _ := values["commit"].(string)
-	if !remoteRepository(repository) || !(domain.BuildSpec{Commit: commit}).ValidCommit() {
-		return fmt.Errorf("%w: build requires an HTTPS/SSH repository and full commit SHA", domain.ErrInvalid)
+	ref, _ := values["ref"].(string)
+	if !remoteRepository(repository) || !(domain.BuildSpec{Ref: ref}).ValidRef() {
+		return fmt.Errorf("%w: build requires an HTTPS/SSH repository and nonempty ref", domain.ErrInvalid)
 	}
 
 	source, err := fs.ReadFile(files, folder+"/Dockerfile.tmpl")
@@ -37,7 +37,7 @@ func prepareBuild(files fs.FS, folder string, data *templateData, project *domai
 		return err
 	}
 
-	project.Build = &domain.BuildSpec{Repository: repository, Commit: commit, Dockerfile: string(output)}
+	project.Build = &domain.BuildSpec{Repository: repository, Ref: ref, Dockerfile: string(output)}
 	data.Runtime.Image = project.Build.Image()
 
 	return nil
