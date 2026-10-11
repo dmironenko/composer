@@ -33,14 +33,12 @@ Git разрешает указанную ссылку внутри Dockerfile. 
 FROM golang:1.26-alpine AS builder
 RUN apk add --no-cache git
 WORKDIR /src
-ARG BUILD_TAG
 RUN git clone {{ quote .Vars.build.repository }} . \
-    && git checkout "$BUILD_TAG" \
+    && git checkout {{ quote .Vars.build.tag }} \
     && CGO_ENABLED=0 go build -o /out/api .
 
 FROM scratch
-ARG BUILD_TAG
-LABEL org.opencontainers.image.revision=$BUILD_TAG
+LABEL org.opencontainers.image.revision={{ quote .Vars.build.tag }}
 COPY --from=builder /out/api /app/api
 ```
 
@@ -51,8 +49,8 @@ COPY --from=builder /out/api /app/api
 ```
 
 Dockerfile получает Go template vars, включая `.Vars.build.repository` и
-`.Vars.build.tag`. Composer передаёт build arg `BUILD_TAG`; объявите
-`ARG` в нужном stage, чтобы использовать его. Другие build args не поддерживаются.
+`.Vars.build.tag`. Оба значения подставляются при рендеринге Dockerfile.
+Composer не передаёт build args.
 
 Build context пустой. Исходники загружает сам Dockerfile; локальный `COPY . .`
 не передаёт файлы из GitOps или с сервера. Для multi-stage сборки используйте
@@ -98,8 +96,8 @@ build:
 Этот override продолжает действовать после merge. Чтобы вернуть общую версию,
 перенесите его в `base.yaml` и удалите override, сохранив `stage.yaml` хотя бы с `{}`.
 
-При обновлении старого конфига переименуйте `build.ref` в `build.tag`,
-а `APP_REF` в Dockerfile — в `BUILD_TAG`.
+В старых Dockerfile замените `$BUILD_TAG` на `{{ quote .Vars.build.tag }}`
+и удалите `ARG BUILD_TAG`.
 
 ## Доступ к исходникам
 

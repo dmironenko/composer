@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,9 +23,8 @@ import (
 )
 
 const sourceDockerfile = `FROM busybox:1.37.0
-ARG BUILD_TAG
-LABEL io.composer.tag=$BUILD_TAG
-RUN case "$BUILD_TAG" in \
+LABEL io.composer.tag={{ quote .Vars.build.tag }}
+RUN case {{ quote .Vars.build.tag }} in \
     v1.0.0) printf 'source-one\n' > /source ;; \
     v2.0.0) printf 'source-two\n' > /source ;; \
     *) exit 1 ;; esac
@@ -49,7 +49,8 @@ func TestSourceBuildRollout(t *testing.T) {
 		removeContainers(t, cleanup, engine, installation)
 
 		for _, tag := range []string{first, second} {
-			spec := domain.BuildSpec{Repository: repository, Tag: tag, Dockerfile: sourceDockerfile}
+			rendered := strings.ReplaceAll(sourceDockerfile, "{{ quote .Vars.build.tag }}", fmt.Sprintf("%q", tag))
+			spec := domain.BuildSpec{Repository: repository, Tag: tag, Dockerfile: rendered}
 
 			_, err := engine.ImageRemove(cleanup, spec.Image(), client.ImageRemoveOptions{})
 			if err != nil && !errdefs.IsNotFound(err) {
@@ -238,7 +239,8 @@ func TestBranchDockerfileRollout(t *testing.T) {
 		removeContainers(t, cleanup, engine, installation)
 
 		for _, dockerfile := range []string{sourceDockerfile, changedDockerfile} {
-			spec := domain.BuildSpec{Repository: repository, Tag: tag, Dockerfile: dockerfile}
+			rendered := strings.ReplaceAll(dockerfile, "{{ quote .Vars.build.tag }}", fmt.Sprintf("%q", tag))
+			spec := domain.BuildSpec{Repository: repository, Tag: tag, Dockerfile: rendered}
 
 			_, err := engine.ImageRemove(cleanup, spec.Image(), client.ImageRemoveOptions{})
 			if err != nil && !errdefs.IsNotFound(err) {

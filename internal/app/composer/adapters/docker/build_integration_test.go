@@ -40,7 +40,7 @@ func TestBuildWithoutExecutables(t *testing.T) {
 	}
 
 	if actual.Config.Labels["io.composer.test.tag"] != spec.Tag {
-		t.Fatalf("build argument label: actual=%v expected=%s", actual.Config.Labels, spec.Tag)
+		t.Fatalf("rendered label: actual=%v expected=%s", actual.Config.Labels, spec.Tag)
 	}
 
 	checkImageFile(t, ctx, docker, spec.Image(), root)
@@ -58,8 +58,7 @@ func buildFixture(t *testing.T) (*Client, domain.BuildSpec, string) {
 		Dockerfile: fmt.Sprintf(`FROM busybox:1.37.0 AS builder
 RUN printf %%s %q > /marker
 FROM scratch
-ARG BUILD_TAG
-LABEL io.composer.test.tag=$BUILD_TAG
+LABEL io.composer.test.tag=v1.0.0
 COPY --from=builder /marker /marker
 COPY . /context/
 `, root),

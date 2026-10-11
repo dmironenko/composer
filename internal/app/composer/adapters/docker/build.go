@@ -44,8 +44,7 @@ func (c *Client) Build(ctx context.Context, spec domain.BuildSpec) (err error) {
 	defer func() { err = errors.Join(err, builder.Close()) }()
 
 	_, err = builder.Solve(ctx, nil, buildkit.SolveOpt{
-		Frontend:      "dockerfile.v0",
-		FrontendAttrs: map[string]string{"build-arg:BUILD_TAG": spec.Tag},
+		Frontend: "dockerfile.v0",
 		FrontendInputs: map[string]llb.State{
 			"context":    llb.Scratch().File(llb.Mkdir("/", contextMode)),
 			"dockerfile": llb.Scratch().File(llb.Mkfile("Dockerfile", dockerfileMode, []byte(spec.Dockerfile))),

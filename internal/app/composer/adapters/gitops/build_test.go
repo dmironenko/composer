@@ -1,6 +1,7 @@
 package gitops_test
 
 import (
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -98,7 +99,8 @@ func TestSourceBuildValidation(t *testing.T) {
 			folder := "apps/demo/api/"
 			write(t, root, folder+"vars/base.yaml", "build:\n  repository: "+tc.repo+"\n  tag: "+tc.tag+
 				"\ncompose:\n  services:\n    api: {}\n")
-			write(t, root, folder+"Dockerfile.tmpl", "FROM scratch\n")
+			write(t, root, folder+"Dockerfile.tmpl",
+				"FROM scratch\nLABEL repository={{ quote .Vars.build.repository }} tag={{ quote .Vars.build.tag }}\n")
 
 			if tc.override != "" {
 				write(t, root, folder+"vars/stage.yaml", "build:\n  tag: "+tc.override+"\n")
@@ -116,6 +118,13 @@ func TestSourceBuildValidation(t *testing.T) {
 
 			if tc.override != "" && project.Build.Tag != tc.override {
 				t.Fatal("stage did not override tag")
+			}
+
+			if !tc.invalid && !tc.disabled {
+				label := fmt.Sprintf("LABEL repository=%q tag=%q", tc.repo, project.Build.Tag)
+				if !strings.Contains(project.Build.Dockerfile, label) {
+					t.Fatalf("build variables were not rendered: %s", project.Build.Dockerfile)
+				}
 			}
 
 			if tc.disabled && project.Build != nil {
