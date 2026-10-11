@@ -13,7 +13,7 @@ Requires Go 1.26.3 or newer. Docker Engine with its embedded BuildKit, or Docker
 Desktop, is required for deployments. The Compose CLI is not required by Composer.
 
 ```sh
-git clone https://github.com/dmironenko/composer.git
+git clone --branch master https://github.com/dmironenko/composer.git
 cd composer
 go build -o bin/composer ./cmd/composer
 bin/composer --help
