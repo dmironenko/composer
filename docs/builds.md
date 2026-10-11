@@ -11,7 +11,7 @@
 ```yaml
 build:
   repository: https://github.com/example/api.git
-  ref: "v1.0.0"
+  tag: "v1.0.0"
 
 compose:
   services:
@@ -24,7 +24,7 @@ app:
   listen: ":8080"
 ```
 
-Замените URL и ref своими. `build.ref` принимает SHA, тег или ветку;
+Замените URL и tag своими. `build.tag` принимает SHA, тег или ветку;
 Git разрешает указанную ссылку внутри Dockerfile. `build.repository` поддерживает HTTPS и SSH, включая `git@host:org/repo.git`.
 
 Пример `Dockerfile.tmpl` для Go-приложения с main package в корне исходников:
@@ -33,14 +33,14 @@ Git разрешает указанную ссылку внутри Dockerfile. 
 FROM golang:1.26-alpine AS builder
 RUN apk add --no-cache git
 WORKDIR /src
-ARG APP_REF
+ARG BUILD_TAG
 RUN git clone {{ quote .Vars.build.repository }} . \
-    && git checkout "$APP_REF" \
+    && git checkout "$BUILD_TAG" \
     && CGO_ENABLED=0 go build -o /out/api .
 
 FROM scratch
-ARG APP_REF
-LABEL org.opencontainers.image.revision=$APP_REF
+ARG BUILD_TAG
+LABEL org.opencontainers.image.revision=$BUILD_TAG
 COPY --from=builder /out/api /app/api
 ```
 
@@ -51,7 +51,7 @@ COPY --from=builder /out/api /app/api
 ```
 
 Dockerfile получает Go template vars, включая `.Vars.build.repository` и
-`.Vars.build.ref`. Composer передаёт build arg `APP_REF`; объявите
+`.Vars.build.tag`. Composer передаёт build arg `BUILD_TAG`; объявите
 `ARG` в нужном stage, чтобы использовать его. Другие build args не поддерживаются.
 
 Build context пустой. Исходники загружает сам Dockerfile; локальный `COPY . .`
@@ -60,13 +60,13 @@ Build context пустой. Исходники загружает сам Dockerf
 
 ## Образы, обновление и откат
 
-Тег `composer/build:<sha256>` зависит от repository, ref и отрендеренного
+Тег `composer/build:<sha256>` зависит от repository, tag и отрендеренного
 Dockerfile. Если образ уже есть в Docker, Composer использует его без checkout
 и сборки. Иначе выполняет Dockerfile.
 Одновременные сборки одного тега объединяются.
 
 Composer отслеживает GitOps-репозиторий, а не перемещения refs исходного приложения.
-Смена `build.ref` с `v1.0.0` на `v1.1.0` вызывает сборку. Перемещение прежнего тега
+Смена `build.tag` с `v1.0.0` на `v1.1.0` вызывает сборку. Перемещение прежнего тега
 или ветки не вызывает обновление и не сбрасывает кэш Docker. Для воспроизводимых
 выкаток используйте SHA или теги, которые не перемещаются.
 
@@ -84,7 +84,7 @@ Composer отслеживает GitOps-репозиторий, а не пере�
 
 ## Stage и выпуск
 
-При `source.branches: {prod: master, stage: dev}` меняйте `build.ref` в
+При `source.branches: {prod: master, stage: dev}` меняйте `build.tag` в
 `base.yaml` и `Dockerfile.tmpl` на dev. Merge в master переносит сборку в prod;
 при одинаковых входах Docker использует тот же образ.
 
@@ -92,14 +92,14 @@ Composer отслеживает GitOps-репозиторий, а не пере�
 
 ```yaml
 build:
-  ref: "89abcdef0123456789abcdef0123456789abcdef01"
+  tag: "89abcdef0123456789abcdef0123456789abcdef01"
 ```
 
 Этот override продолжает действовать после merge. Чтобы вернуть общую версию,
 перенесите его в `base.yaml` и удалите override, сохранив `stage.yaml` хотя бы с `{}`.
 
-При обновлении старого конфига переименуйте `build.commit` в `build.ref`,
-а `APP_COMMIT` в Dockerfile — в `APP_REF`.
+При обновлении старого конфига переименуйте `build.ref` в `build.tag`,
+а `APP_REF` в Dockerfile — в `BUILD_TAG`.
 
 ## Доступ к исходникам
 

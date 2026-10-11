@@ -22,9 +22,9 @@ import (
 )
 
 const sourceDockerfile = `FROM busybox:1.37.0
-ARG APP_REF
-LABEL io.composer.ref=$APP_REF
-RUN case "$APP_REF" in \
+ARG BUILD_TAG
+LABEL io.composer.tag=$BUILD_TAG
+RUN case "$BUILD_TAG" in \
     v1.0.0) printf 'source-one\n' > /source ;; \
     v2.0.0) printf 'source-two\n' > /source ;; \
     *) exit 1 ;; esac
@@ -48,8 +48,8 @@ func TestSourceBuildRollout(t *testing.T) {
 
 		removeContainers(t, cleanup, engine, installation)
 
-		for _, ref := range []string{first, second} {
-			spec := domain.BuildSpec{Repository: repository, Ref: ref, Dockerfile: sourceDockerfile}
+		for _, tag := range []string{first, second} {
+			spec := domain.BuildSpec{Repository: repository, Tag: tag, Dockerfile: sourceDockerfile}
 
 			_, err := engine.ImageRemove(cleanup, spec.Image(), client.ImageRemoveOptions{})
 			if err != nil && !errdefs.IsNotFound(err) {
@@ -86,11 +86,11 @@ func TestSourceBuildRollout(t *testing.T) {
 
 	writeFile(t, filepath.Join(folder, "Dockerfile.tmpl"), sourceDockerfile)
 	writeFile(t, filepath.Join(folder, "configs/message.tmpl"), "{{ .Vars.message }}\n")
-	writeFile(t, filepath.Join(folder, "vars/stage.yaml"), "build:\n  ref: "+second+"\n")
+	writeFile(t, filepath.Join(folder, "vars/stage.yaml"), "build:\n  tag: "+second+"\n")
 
-	apply := func(ref, message string) {
+	apply := func(tag, message string) {
 		t.Helper()
-		writeFile(t, filepath.Join(folder, "vars/base.yaml"), sourceBuildVars(repository, ref, message))
+		writeFile(t, filepath.Join(folder, "vars/base.yaml"), sourceBuildVars(repository, tag, message))
 		commitAll(t, repo)
 		applySourceBuild(t, ctx, host)
 	}
@@ -141,7 +141,7 @@ func TestSourceBuildRollout(t *testing.T) {
 			content: sourceDockerfile + "\nRUN exit 42\n", restored: sourceDockerfile,
 		},
 		{
-			name: "rejected source ref", file: "vars/base.yaml",
+			name: "rejected source tag", file: "vars/base.yaml",
 			content:  sourceBuildVars(repository, "ffffffffffffffffffffffffffffffffffffffff", "config-two"),
 			restored: sourceBuildVars(repository, first, "config-two"),
 		},
@@ -202,10 +202,10 @@ func applySourceBuild(t *testing.T, ctx context.Context, host string) {
 	}
 }
 
-func sourceBuildVars(repository, ref, message string) string {
+func sourceBuildVars(repository, tag, message string) string {
 	return fmt.Sprintf(`build:
   repository: %s
-  ref: %s
+  tag: %s
 message: %s
 compose:
   services:
@@ -216,7 +216,7 @@ compose:
         interval: 100ms
         timeout: 1s
         retries: 10
-`, repository, ref, message)
+`, repository, tag, message)
 }
 
 //nolint:funlen,gocognit,gocyclo,cyclop,maintidx,paralleltest // Ordered Docker lifecycle.
@@ -225,7 +225,7 @@ func TestBranchDockerfileRollout(t *testing.T) {
 	defer cancel()
 
 	root := t.TempDir()
-	ref := "v1.0.0"
+	tag := "v1.0.0"
 	installation := fmt.Sprintf("composer-br-%d", time.Now().UnixNano())
 	repository := "https://example.test/" + installation + ".git"
 	engine := dockerEngine(t, installation)
@@ -238,7 +238,7 @@ func TestBranchDockerfileRollout(t *testing.T) {
 		removeContainers(t, cleanup, engine, installation)
 
 		for _, dockerfile := range []string{sourceDockerfile, changedDockerfile} {
-			spec := domain.BuildSpec{Repository: repository, Ref: ref, Dockerfile: dockerfile}
+			spec := domain.BuildSpec{Repository: repository, Tag: tag, Dockerfile: dockerfile}
 
 			_, err := engine.ImageRemove(cleanup, spec.Image(), client.ImageRemoveOptions{})
 			if err != nil && !errdefs.IsNotFound(err) {
@@ -258,7 +258,7 @@ func TestBranchDockerfileRollout(t *testing.T) {
 	}
 
 	writeFile(t, filepath.Join(folder, "Dockerfile.tmpl"), sourceDockerfile)
-	writeFile(t, filepath.Join(folder, "vars/base.yaml"), sourceBuildVars(repository, ref, "config-one"))
+	writeFile(t, filepath.Join(folder, "vars/base.yaml"), sourceBuildVars(repository, tag, "config-one"))
 	writeFile(t, filepath.Join(folder, "vars/stage.yaml"), "{}\n")
 	writeFile(t, filepath.Join(folder, "configs/message.tmpl"), "{{ .Vars.message }}\n")
 	commitAll(t, repo)

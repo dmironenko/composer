@@ -13,7 +13,7 @@ func TestSourceBuildInputs(t *testing.T) {
 	t.Parallel()
 
 	folder := "apps/demo/api/"
-	base := "build:\n  repository: https://example.com/app.git\n  ref: " + strings.Repeat("a", 40) +
+	base := "build:\n  repository: https://example.com/app.git\n  tag: " + strings.Repeat("a", 40) +
 		"\nmessage: first\ncompose:\n  services:\n    api: {}\n    sidecar:\n      image: busybox:1.37.0\n"
 
 	cases := []struct {
@@ -21,7 +21,7 @@ func TestSourceBuildInputs(t *testing.T) {
 		sameImage              bool
 	}{
 		{name: "runtime config", base: strings.Replace(base, "message: first", "message: second", 1), sameImage: true},
-		{name: "source ref", base: strings.ReplaceAll(base, strings.Repeat("a", 40), strings.Repeat("b", 40))},
+		{name: "source tag", base: strings.ReplaceAll(base, strings.Repeat("a", 40), strings.Repeat("b", 40))},
 		{name: "dockerfile", base: base, dockerfile: "FROM scratch\nLABEL version=changed\n"},
 	}
 	for _, tc := range cases {
@@ -66,24 +66,24 @@ func TestSourceBuildValidation(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name, repo, ref, env, override string
+		name, repo, tag, env, override string
 		invalid, disabled              bool
 	}{
-		{name: "https", repo: "https://example.com/app.git", ref: strings.Repeat("a", 40), env: "prod"},
-		{name: "ssh", repo: "git@example.com:app.git", ref: strings.Repeat("a", 40), env: "prod"},
+		{name: "https", repo: "https://example.com/app.git", tag: strings.Repeat("a", 40), env: "prod"},
+		{name: "ssh", repo: "git@example.com:app.git", tag: strings.Repeat("a", 40), env: "prod"},
 		{
-			name: "stage override", repo: "https://example.com/app.git", ref: "v1.0.0",
+			name: "stage override", repo: "https://example.com/app.git", tag: "v1.0.0",
 			env: "stage", override: "v2.0.0",
 		},
 		{
-			name: "absent stage", repo: "https://example.com/app.git", ref: strings.Repeat("a", 40),
+			name: "absent stage", repo: "https://example.com/app.git", tag: strings.Repeat("a", 40),
 			env: "stage", disabled: true,
 		},
-		{name: "branch", repo: "https://example.com/app.git", ref: "master", env: "prod"},
-		{name: "tag", repo: "https://example.com/app.git", ref: "v1.0.0", env: "prod"},
-		{name: "missing ref", repo: "https://example.com/app.git", env: "prod", invalid: true},
+		{name: "branch", repo: "https://example.com/app.git", tag: "master", env: "prod"},
+		{name: "tag", repo: "https://example.com/app.git", tag: "v1.0.0", env: "prod"},
+		{name: "missing tag", repo: "https://example.com/app.git", env: "prod", invalid: true},
 		{
-			name: "local transport unsupported", repo: "/local/repo", ref: strings.Repeat("a", 40),
+			name: "local transport unsupported", repo: "/local/repo", tag: strings.Repeat("a", 40),
 			env: "prod", invalid: true,
 		},
 	}
@@ -96,12 +96,12 @@ func TestSourceBuildValidation(t *testing.T) {
 			cfg.StateDir = t.TempDir()
 			cfg.Environments = []string{tc.env}
 			folder := "apps/demo/api/"
-			write(t, root, folder+"vars/base.yaml", "build:\n  repository: "+tc.repo+"\n  ref: "+tc.ref+
+			write(t, root, folder+"vars/base.yaml", "build:\n  repository: "+tc.repo+"\n  tag: "+tc.tag+
 				"\ncompose:\n  services:\n    api: {}\n")
 			write(t, root, folder+"Dockerfile.tmpl", "FROM scratch\n")
 
 			if tc.override != "" {
-				write(t, root, folder+"vars/stage.yaml", "build:\n  ref: "+tc.override+"\n")
+				write(t, root, folder+"vars/stage.yaml", "build:\n  tag: "+tc.override+"\n")
 			}
 
 			actual, err := gitops.New(cfg).Load(t.Context(), root)
@@ -114,8 +114,8 @@ func TestSourceBuildValidation(t *testing.T) {
 				t.Fatalf("unexpected project: %+v", project)
 			}
 
-			if tc.override != "" && project.Build.Ref != tc.override {
-				t.Fatal("stage did not override ref")
+			if tc.override != "" && project.Build.Tag != tc.override {
+				t.Fatal("stage did not override tag")
 			}
 
 			if tc.disabled && project.Build != nil {

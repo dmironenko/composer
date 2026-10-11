@@ -35,9 +35,9 @@ NGINX, HAProxy, БД и другие сервисы описываются то�
 - После неудачного применения старый хэш успеха не должен скрывать Git revert.
 - Volumes/images не удаляются автоматически; GitOps repo считается доверенным.
 - Образы и build cache хранит Docker; отдельный менеджер кэша Composer не нужен.
-- Source image определяется repository + ref (SHA, тег или ветка) + отрендеренный Dockerfile.
+- Source image определяется repository + tag (SHA, тег или ветка) + отрендеренный Dockerfile.
 - Build завершается до инвалидирования applied marker и Up; ошибка build сохраняет прежний project.
-- Получение исходников и компиляция — в Dockerfile из GitOps; CLI передаёт APP_REF и пустой build context.
+- Получение исходников и компиляция — в Dockerfile из GitOps; CLI передаёт BUILD_TAG и пустой build context.
 - source.auth относится только к GitOps. Credentials не передаются в Dockerfile.
 - Runtime build использует embedded BuildKit и проверяется adapter integration tests.
 - GitHub Actions не требуется: Composer сам читает Git, проверяет и применяет изменения.

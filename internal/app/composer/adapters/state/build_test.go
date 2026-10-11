@@ -32,7 +32,7 @@ func TestBuildPrecedesDeployment(t *testing.T) {
 			change := &changes[0]
 
 			change.Build = &domain.BuildSpec{
-				Repository: "https://example.com/app.git", Ref: "ref", Dockerfile: "FROM scratch",
+				Repository: "https://example.com/app.git", Tag: "tag", Dockerfile: "FROM scratch",
 			}
 			if err := os.WriteFile(filepath.Join(change.Directory, "applied"), []byte("previous"), 0o600); err != nil {
 				t.Fatal(err)

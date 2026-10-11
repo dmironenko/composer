@@ -24,7 +24,7 @@ func TestReportPrivateInputs(t *testing.T) {
 			Name: "api", Environment: "prod", Enabled: true, Hash: "hash",
 			Directory: "private-directory", Network: "private-network",
 			Manifest: domain.Manifest{Content: []byte("secret-manifest"), ConfigHash: "private-config"},
-			Build:    &domain.BuildSpec{Repository: "private-repo", Ref: "private-commit", Dockerfile: "private-build"},
+			Build:    &domain.BuildSpec{Repository: "private-repo", Tag: "private-commit", Dockerfile: "private-build"},
 		}, Action: "apply",
 	}}}
 	expected := "{\"commit\":\"revision\",\"projects\":[{\"name\":\"api\",\"environment\":\"prod\"," +
