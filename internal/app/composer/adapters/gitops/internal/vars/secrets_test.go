@@ -12,42 +12,23 @@ import (
 )
 
 //nolint:gocognit,gocyclo,cyclop,maintidx // Keep each table case and its related assertions together.
-func TestReadSOPS(t *testing.T) {
+func TestReadSecrets(t *testing.T) {
 	cases := []struct {
 		name, source, key string
-		tamper            bool
 		expectedErr       error
 	}{
 		{name: "encrypted subtree", source: "base.yaml", key: "age-key.txt"},
-		{name: "all values encrypted", source: "base-all.yaml", key: "age-key.txt"},
-		{name: "second recipient", source: "base-multi.yaml", key: "age-key.txt"},
-		{name: "first recipient", source: "base-multi.yaml", key: "other-key.txt"},
 		{name: "no configured key", source: "base.yaml", expectedErr: vars.ErrEncrypted},
 		{name: "wrong key", source: "base.yaml", key: "other-key.txt", expectedErr: vars.ErrEncrypted},
 		{name: "unreadable key", source: "base.yaml", key: "missing.txt", expectedErr: vars.ErrEncrypted},
-		{
-			name: "clear value tampered", source: "base.yaml", key: "age-key.txt", tamper: true,
-			expectedErr: vars.ErrEncrypted,
-		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Ambient credentials and external executables must not be used.
-			key, err := os.ReadFile("testdata/age-key.txt")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			t.Setenv("SOPS_AGE_KEY", string(key))
 			t.Setenv("PATH", t.TempDir())
 
 			data, err := os.ReadFile(filepath.Join("testdata", tc.source))
 			if err != nil {
 				t.Fatal(err)
-			}
-
-			if tc.tamper {
-				data = []byte(strings.Replace(string(data), "65534:65534", "65533:65533", 1))
 			}
 
 			root := t.TempDir()
@@ -74,7 +55,7 @@ func TestReadSOPS(t *testing.T) {
 			}
 
 			expected := decode(t, `
-database: {host: db, password: base-test-secret}
+database: {host: db}
 logging: {level: info}
 retries: 3
 debug: false
@@ -83,8 +64,8 @@ debug: false
 				t.Fatal("decryption changed app values or YAML types")
 			}
 
-			if _, exists := actual["sops"]; exists {
-				t.Fatal("metadata leaked into vars")
+			if !reflect.DeepEqual(actual["secrets"], decode(t, "database: {password: base-test-secret}")) {
+				t.Fatal("secret was not decrypted")
 			}
 
 			original, err := os.ReadFile(filepath.Join(root, "base.yaml"))
@@ -106,8 +87,8 @@ func TestReadFailuresDoNotExposeSecrets(t *testing.T) {
 		{name: "invalid identity", key: "private-key-marker", expectedErr: vars.ErrEncrypted},
 		{name: "empty identity", key: "# no identities\n", expectedErr: vars.ErrEncrypted},
 		{
-			name:        "invalid encrypted metadata",
-			document:    "app: private-value-marker\nsops: {}\n",
+			name:        "invalid encrypted value",
+			document:    "secrets: age:private-value-marker\n",
 			expectedErr: vars.ErrEncrypted,
 		},
 		{name: "malformed yaml", document: "app: [private-value-marker", expectedErr: vars.ErrInvalid},

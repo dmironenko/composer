@@ -77,7 +77,7 @@ func execute(name, source string, data templateData) ([]byte, error) {
 	var output bytes.Buffer
 	if err := tmpl.Execute(&output, data); err != nil {
 		// text/template errors can include values passed to a helper. Do not
-		// expose them: templates receive plaintext secrets after SOPS decryption.
+		// expose them: templates receive plaintext secrets after secrets decryption.
 		return nil, fmt.Errorf(
 			"%w: execute template %s (check required keys and helper argument types)", domain.ErrInvalid, name,
 		)

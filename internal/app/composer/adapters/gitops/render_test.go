@@ -315,7 +315,7 @@ func encryptedFixture(t *testing.T, environment string) (string, gitops.Options)
 	folder := "apps/demo/service/"
 	err = os.RemoveAll(filepath.Join(root, folder, "configs"))
 	check(t, err == nil, err)
-	write(t, root, folder+"configs/config.yaml.tmpl", "{{ .Vars.app | toYAML }}")
+	write(t, root, folder+"configs/config.yaml.tmpl", "{{ merge .Vars.app .Secrets | toYAML }}")
 	copyEncrypted(t, root, "base.yaml", "base.yaml")
 
 	return root, cfg
@@ -424,7 +424,7 @@ func testEncryptedAppConfig(t *testing.T, tc encryptedCase) {
 		`{{ toYAML (merge $defaults $service) | indent 4 }}`,
 		`{{ toYAML (merge (dict "restart" "always") $service) | indent 4 }}
     environment:
-      PASSWORD: {{ quote $.Vars.app.database.password }}`, 1))
+      PASSWORD: {{ quote $.Secrets.database.password }}`, 1))
 
 	if tc.override != "" {
 		copyEncrypted(t, root, tc.override, tc.environment+".yaml")

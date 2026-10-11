@@ -113,9 +113,9 @@ Docker changes. Use one agent per state directory. Services must tolerate
 dependencies starting later; there is no cross-project startup ordering or
 zero-downtime guarantee.
 
-Use trusted GitOps repositories: they have Docker-level privileges. SOPS with age
-can encrypt vars in Git; keep the private key outside Git and protect the state
-directory, which contains decrypted configs.
+Use trusted GitOps repositories: they have Docker-level privileges. Composer
+encrypts secrets with age for storage in Git. Keep the private key outside Git
+and protect the state directory, which contains decrypted configs.
 
 ## Guides
 
@@ -123,7 +123,7 @@ Detailed guides are currently in Russian:
 
 - [Architecture and deployment rules](docs/architecture.md)
 - [Source builds and Docker image caching](docs/builds.md)
-- [Secrets with SOPS and age](docs/secrets.md)
+- [Encrypted secrets](docs/secrets.md)
 - [Ubuntu and systemd](docs/systemd.md)
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development checks.

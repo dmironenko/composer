@@ -19,7 +19,7 @@ func NewCommand(version string, stdout, stderr io.Writer, bootstrap Bootstrap) *
 	var configPath string
 	root.PersistentFlags().StringVar(&configPath, "config", "composer.yaml", "Host configuration file")
 	root.AddCommand(initCommand(&configPath, bootstrap), configCommand(&configPath, bootstrap), templateCommand(bootstrap))
-	root.AddCommand(installCommand(&configPath, bootstrap))
+	root.AddCommand(installCommand(&configPath, bootstrap), secretsCommand(bootstrap))
 	root.AddCommand(
 		runtimeCommand(&configPath, bootstrap, "validate", "Render and validate the committed snapshot"),
 		runtimeCommand(&configPath, bootstrap, "plan", "Compare rendered projects with successful hashes"),

@@ -27,7 +27,7 @@ func TestDecode(t *testing.T) {
 		{name: "list root", input: "[one, two]", expectedErr: vars.ErrInvalid},
 		{name: "invalid syntax", input: "a: [", expectedErr: vars.ErrInvalid},
 		{name: "extra document", input: "a: 1\n---\na: 2", expectedErr: vars.ErrInvalid},
-		{name: "encrypted", input: "sops: {}\nsecret: encrypted", expectedErr: vars.ErrEncrypted},
+		{name: "encrypted", input: "sops: {}\nsecret: encrypted", expectedErr: vars.ErrInvalid},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

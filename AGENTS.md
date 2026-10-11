@@ -19,7 +19,7 @@ NGINX, HAProxy, БД и другие сервисы описываются то�
 
 - В YAML-примерах отступ — два пробела; command и healthcheck.test — однострочные строки.
   Для shell-команд явно указывай `sh -c`; перед блоками compose и secrets — пустая строка.
-  Блок secrets располагай внизу vars-файла, перед служебным блоком sops.
+  Блок secrets располагай внизу vars-файла: одна строка age:<base64>.
 - Prod = base; любое другое окружение = base + stage. Основные настройки — base.yaml.
 - Нет stage.yaml — приложение выключено во всех non-prod окружениях; пустой файл включает его.
 - Единственный список окружений — source.branches; имена произвольные, prod — особый случай.
@@ -30,7 +30,7 @@ NGINX, HAProxy, БД и другие сервисы описываются то�
 - Один каталог — независимый Compose project; namespace/environment — отдельная сеть.
 - Все namespace networks, включая запрошенные через helper network, готовятся до параллельных Compose operations.
 - Config-only update действительно применяется; scale не пересоздаёт прежние реплики.
-- SOPS vars расшифровываются до merge; age_key_file вне Git, plaintext не выводится в отчётах.
+- Блоки secrets расшифровываются через age до merge; age_key_file вне Git, plaintext не выводится в отчётах.
 - Подстановки — только Go templates; второй Compose interpolation отключён для сохранения `$` в секретах.
 - После неудачного применения старый хэш успеха не должен скрывать Git revert.
 - Volumes/images не удаляются автоматически; GitOps repo считается доверенным.

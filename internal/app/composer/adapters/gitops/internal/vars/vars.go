@@ -13,7 +13,7 @@ import (
 
 var (
 	ErrInvalid   = errors.New("invalid vars yaml")
-	ErrEncrypted = errors.New("cannot decrypt SOPS vars: check age_key_file and file integrity")
+	ErrEncrypted = errors.New("cannot decrypt secrets: check age_key_file and value integrity")
 )
 
 // Read reports absence separately from an empty document. Only absence disables
@@ -29,11 +29,8 @@ func Read(fsys fs.FS, path, ageKeyFile string) (map[string]any, bool, error) {
 	}
 
 	values, err := Decode(data)
-	if errors.Is(err, ErrEncrypted) {
-		data, err = decrypt(data, ageKeyFile)
-		if err == nil {
-			values, err = Decode(data)
-		}
+	if err == nil {
+		err = decryptValues(values, ageKeyFile)
 	}
 
 	if err != nil {
@@ -61,7 +58,7 @@ func Decode(data []byte) (map[string]any, error) {
 	}
 
 	if _, encrypted := values["sops"]; encrypted {
-		return nil, ErrEncrypted
+		return nil, fmt.Errorf("%w: SOPS files are no longer supported; migrate to encrypted secrets", ErrInvalid)
 	}
 
 	if !stringKeys(values) {
@@ -140,4 +137,27 @@ func stringMapKeys(values map[string]any) bool {
 	}
 
 	return true
+}
+
+func decryptValues(values map[string]any, keyFile string) error {
+	switch value := values["secrets"].(type) {
+	case nil, map[string]any:
+		return nil
+	case string:
+		plaintext, err := Decrypt([]byte(value), keyFile)
+		if err != nil {
+			return err
+		}
+
+		secrets, err := Decode(plaintext)
+		if err != nil {
+			return ErrEncrypted
+		}
+
+		values["secrets"] = secrets
+
+		return nil
+	default:
+		return ErrEncrypted
+	}
 }

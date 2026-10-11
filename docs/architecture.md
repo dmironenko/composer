@@ -85,8 +85,8 @@ internal/app/composer/
     cli/                      Cobra, flags, JSON DTO и ошибки для пользователя
   adapters/
     git/                      snapshots, exact SHA checkout, SSH/HTTPS
-    gitops/                   vars/SOPS/templates, configs, Compose validation
-      internal/vars/          приватный YAML merge и SOPS
+    gitops/                   vars/secrets/templates, configs, Compose validation
+      internal/vars/          приватный YAML merge и age
     docker/                   Compose lifecycle, Engine и embedded BuildKit
     state/                    inventory, applied/attempted markers, build workspace
     systemd/                  установка unit/binary и вызовы systemctl

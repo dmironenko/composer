@@ -1,45 +1,32 @@
 app:
-    database:
-        host: ENC[AES256_GCM,data:Cek=,iv:TpYdJHEpe1Ml3g8GXO/i7Um+rmrdShdwlslIQhZcLyg=,tag:brOpVISQK2Y9O8/ykMrtOA==,type:str]
-        password: ENC[AES256_GCM,data:tiDG+74/ShTIWBgw03l93upsJQ==,iv:b2OZeO5530tZGGWIge+CiRQfjOaQbB7uNHnnK10YnlY=,tag:spoPxuyjhaWlgUR3LJQ1Bg==,type:str]
-    logging:
-        level: ENC[AES256_GCM,data:X3lEtw==,iv:rL31NSkEJC0xXyA307uNI8d8AFy6DbGPTdHY1TqrK8o=,tag:WWVfi+MTmrAtY6ffdsWVyg==,type:str]
-    retries: ENC[AES256_GCM,data:vw==,iv:xfKqj7JzlFa9iZCgc7DLqOvdcZXoxQ9Ssi9FbkSCGUI=,tag:MlX93GH1EbhIXNA/G8Fiow==,type:int]
-    debug: ENC[AES256_GCM,data:MWuoAGc=,iv:Aoo9I6t0OKfi2ns4kDBVcG+0WNBYaRLBGUCS7TOO36A=,tag:mo+Za1AD8Iwb3aI5dX4NNA==,type:bool]
+  database:
+    host: db
+  logging:
+    level: info
+  retries: 3
+  debug: false
+
 compose:
-    services:
-        api-http:
-            image: busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
-            user: 65534:65534
-            command:
-                - sh
-                - -c
-                - mkdir -p /tmp/www && cp /etc/app/config.yaml /tmp/www/index.html && exec httpd -f -p 8080 -h /tmp/www
-            volumes:
-                - ./configs/config.yaml:/etc/app/config.yaml:ro
-            healthcheck:
-                test:
-                    - CMD
-                    - wget
-                    - -q
-                    - -O
-                    - /dev/null
-                    - http://127.0.0.1:8080
-                interval: 1s
-                timeout: 1s
-                retries: 10
-sops:
-    age:
-        - recipient: age1v46958ykcwy2446cp0qus5lrmusyhgxduwhjp7rhz699t4lhkcgsvymndl
-          enc: |
-            -----BEGIN AGE ENCRYPTED FILE-----
-            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB2V3gvdnc4R1d6Umt2cEdz
-            ZDB4TVpETDNJU0tyR2hQMGN1R1ZTSFBqSnpFCmdNOWhrZmF5Wi9UeC9CVGp0d1Y5
-            OW5qRVZRL1BWM3cwK1RLSlRBUUtyTUkKLS0tIFVDc002RERkU3RHcSt2OGFqcmoz
-            Nlg5WjZPbVZYSDNJekRQeUdETnpIeGMKAUsA4csVSUEGZRbvFUCkcFUpByTMZ1Ad
-            V3gXaUZn8NSytQe+PVJw1n6GT9hlyLrKh7s7+Ipkh8XeRyJ+h6MAfw==
-            -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2026-10-02T21:59:54Z"
-    mac: ENC[AES256_GCM,data:jsQSzD0kzCmlYaPcvCX7XILo/p+1tkFZi7Z15M/ivLUvVVyXqe2WWXPFN6ELF+GQoJq0Au8Z1f5hCjGLUf0gtxPreJn5LDE92F+BxZX5GSKS2xNbgAL6H9XUvbFn0bqsEKnwPCBePQhu+eHoOcgStQIM3VE1jCMXckyoQMSqx6o=,iv:ZiTuXg71BfdckwFRTvZvKMM8z6WecT25jswk0R8CIsc=,tag:ICG5XFrtFYA/RORGNC09wg==,type:str]
-    encrypted_regex: ^app$
-    version: 3.12.2
+  services:
+    api-http:
+      image: busybox:1.37.0@sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d90a01445013f82e
+      user: 65534:65534
+      command:
+      - sh
+      - -c
+      - mkdir -p /tmp/www && cp /etc/app/config.yaml /tmp/www/index.html && exec httpd -f -p 8080 -h /tmp/www
+      volumes:
+      - ./configs/config.yaml:/etc/app/config.yaml:ro
+      healthcheck:
+        test:
+        - CMD
+        - wget
+        - -q
+        - -O
+        - /dev/null
+        - http://127.0.0.1:8080
+        interval: 1s
+        timeout: 1s
+        retries: 10
+
+secrets: age:YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSArV0pLUjVwL3c1YXNzK25JSXJCMHNnRkpIbFVMRzE5SUVtYm9PMDdSdVFvClMrZjZhc0wvVWM3dzM2Y3pIbzBJWTBFYXFvc1duNXhuVzZaR2FyRTlHaG8KLS0tIEdaay9VeXpaZWlicEFCdE9Hb0N5S205SFlKanlhdmtpb2JsQ0xtQzY0R0UKE1Atb5WRyzRs3D1sxJMPvjU5eAEKHq4eQb+Eg2YrBpEhkjEJ1LFGZaRfRQZ5i+jhq+R2IU6CGW0rF/mxbnBgYr9NTTC9hjUWx3o=

@@ -28,7 +28,7 @@ func TestSecretRollout(t *testing.T) {
 
 	root := t.TempDir()
 	repoPath, host := filepath.Join(root, "repo"), filepath.Join(root, "composer.yaml")
-	installation := fmt.Sprintf("composer-sops-%d", time.Now().UnixNano())
+	installation := fmt.Sprintf("composer-age-%d", time.Now().UnixNano())
 
 	run := func(args ...string) error {
 		t.Helper()
@@ -89,7 +89,7 @@ func TestSecretRollout(t *testing.T) {
 		t.Fatal(checkErr)
 	}
 
-	writeFile(t, filepath.Join(folder, "configs/config.yaml.tmpl"), "{{ .Vars.app | toYAML }}")
+	writeFile(t, filepath.Join(folder, "configs/config.yaml.tmpl"), "{{ merge .Vars.app .Secrets | toYAML }}")
 
 	copyEncrypted := func(source, target string) {
 		t.Helper()
