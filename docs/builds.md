@@ -11,17 +11,17 @@
 ```yaml
 build:
   repository: https://github.com/example/api.git
-  tag: "v1.0.0"
+  tag: v1.0.0
 
 compose:
   services:
     api:
       command: /app/api --config /etc/app/config.yaml
-      volumes: ["./configs/config.yaml:/etc/app/config.yaml:ro"]
+      volumes: [./configs/config.yaml:/etc/app/config.yaml:ro]
       deploy:
         replicas: 2
 app:
-  listen: ":8080"
+  listen: :8080
 ```
 
 Замените URL и tag своими. `build.tag` принимает SHA, тег или ветку;
@@ -92,7 +92,7 @@ Composer отслеживает GitOps-репозиторий, а не пере�
 
 ```yaml
 build:
-  tag: "89abcdef0123456789abcdef0123456789abcdef01"
+  tag: 89abcdef0123456789abcdef0123456789abcdef01
 ```
 
 Этот override продолжает действовать после merge. Чтобы вернуть общую версию,
