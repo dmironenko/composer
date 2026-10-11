@@ -9,6 +9,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -178,14 +179,21 @@ func serveCheckoutSession(ctx context.Context, incoming ssh.NewChannel, gitBinar
 		}
 
 		command := exec.CommandContext(ctx, gitBinary, "-c", "uploadpack.allowReachableSHA1InWant=true", "upload-pack", root)
+		status := struct{ Status uint32 }{}
 
 		command.Stdin, command.Stdout, command.Stderr = channel, channel, channel.Stderr()
 		if err = command.Run(); err != nil {
-			return fmt.Errorf("upload-pack: %w", err)
+			var exitError *exec.ExitError
+			if !errors.As(err, &exitError) {
+				return fmt.Errorf("upload-pack: %w", err)
+			}
+
+			status.Status = uint32(exitError.ExitCode()) //nolint:gosec // SSH encodes the child's exit status as uint32.
 		}
 
-		_, err = channel.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{}))
-		if err != nil {
+		_, err = channel.SendRequest("exit-status", false, ssh.Marshal(status))
+		// A client may close the session after consuming the complete pack.
+		if err != nil && !errors.Is(err, io.EOF) {
 			return fmt.Errorf("SSH exit status: %w", err)
 		}
 

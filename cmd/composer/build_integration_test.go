@@ -30,7 +30,7 @@ RUN mkdir /www
 CMD ["sh", "-c", "cat /source /etc/message > /www/index.html; exec httpd -f -p 8080 -h /www"]
 `
 
-//nolint:funlen,gocognit,gocyclo,cyclop,maintidx // Ordered Docker/SSH lifecycle with process environment.
+//nolint:funlen,gocognit,gocyclo,cyclop,maintidx,paralleltest // Ordered Docker/SSH lifecycle with process environment.
 func TestSourceBuildRollout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 	defer cancel()
@@ -112,6 +112,11 @@ func TestSourceBuildRollout(t *testing.T) {
 	prod := item("prod", "source-one\nconfig-one")
 	stage := item("stage", "source-two\nconfig-one")
 	// Once both images exist, later operations must work without source credentials.
+	privateKey, err := os.ReadFile(auth.KeyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if err = os.Remove(auth.KeyFile); err != nil {
 		t.Fatal(err)
 	}
@@ -139,6 +144,48 @@ func TestSourceBuildRollout(t *testing.T) {
 	unchangedStage := item("stage", "source-two\nconfig-two")
 	if reverted.ImageID != prod.ImageID || unchangedStage.ID != changedStage.ID {
 		t.Fatal("revert rebuilt image or changed stage")
+	}
+
+	writeFile(t, auth.KeyFile, string(privateKey))
+
+	for _, failure := range []struct{ name, file, content, restored string }{
+		{
+			name: "failed Dockerfile", file: "Dockerfile.tmpl",
+			content: sourceDockerfile + "\nRUN exit 42\n", restored: sourceDockerfile,
+		},
+		{
+			name: "missing source commit", file: "vars/base.yaml",
+			content:  sourceBuildVars(repository, "ffffffffffffffffffffffffffffffffffffffff", "config-two"),
+			restored: sourceBuildVars(repository, first, "config-two"),
+		},
+	} {
+		t.Run(failure.name, func(t *testing.T) {
+			writeFile(t, filepath.Join(folder, failure.file), failure.content)
+			commitAll(t, repo)
+
+			var output bytes.Buffer
+
+			cmd := newCommand("test", &output, &output) //nolint:contextcheck // ExecuteContext sets the callback context.
+			cmd.SetArgs([]string{"apply", "--config", host})
+
+			if applyErr := cmd.ExecuteContext(ctx); applyErr == nil {
+				t.Fatal("failed source build reported success")
+			}
+
+			if item("prod", "source-one\nconfig-two").ID != reverted.ID ||
+				item("stage", "source-two\nconfig-two").ID != unchangedStage.ID {
+				t.Fatal("failed source build changed a running container")
+			}
+
+			writeFile(t, filepath.Join(folder, failure.file), failure.restored)
+			commitAll(t, repo)
+			applySourceBuild(t, ctx, host)
+
+			if item("prod", "source-one\nconfig-two").ID != reverted.ID ||
+				item("stage", "source-two\nconfig-two").ID != unchangedStage.ID {
+				t.Fatal("revert after failed build recreated an unchanged container")
+			}
+		})
 	}
 }
 
