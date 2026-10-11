@@ -1,20 +1,9 @@
 # Сборка приложений из Git
 
-Composer получает исходники указанного commit, рендерит `Dockerfile.tmpl` из
-GitOps-репозитория и собирает образ в Docker. Образы и build cache хранит Docker;
-Composer не создаёт собственное хранилище и не удаляет образы автоматически.
+Composer получает исходники указанного commit и собирает образ по `Dockerfile.tmpl`
+из GitOps-репозитория. Образы и кэш сборки хранит Docker; автоматического удаления нет.
 
 ## Файлы приложения
-
-```text
-apps/<namespace>/<app>/
-  Dockerfile.tmpl
-  vars/
-    base.yaml
-    stage.yaml       # необязательно: включает stage
-  configs/
-    config.yaml.tmpl
-```
 
 В `vars/base.yaml`:
 
@@ -34,9 +23,8 @@ app:
   listen: ":8080"
 ```
 
-URL и SHA в примере замените своими. `build.commit` — полный SHA из 40 строчных
-hex-символов; branch, tag и короткий SHA не принимаются. `build.repository`
-поддерживает HTTPS и SSH, включая `git@host:org/repo.git`.
+Замените URL и SHA своими. `build.commit` принимает полный SHA из 40 строчных
+hex-символов. `build.repository` поддерживает HTTPS и SSH, включая `git@host:org/repo.git`.
 
 Пример `Dockerfile.tmpl` для Go-приложения с main package в корне исходников:
 
@@ -58,72 +46,52 @@ COPY --from=builder /out/api /app/api
 {{ .Vars.app | toYAML }}
 ```
 
-Dockerfile получает те же Go template vars, включая `.Vars.build.repository`
-и `.Vars.build.commit`. Аргумент сборки `COMPOSER_COMMIT` Composer передаёт
-автоматически; чтобы использовать его в Dockerfile, объявите `ARG` в нужном stage.
-Произвольной карты build args в текущем контракте нет.
+Dockerfile получает Go template vars, включая `.Vars.build.repository` и
+`.Vars.build.commit`. Composer передаёт build arg `COMPOSER_COMMIT`; объявите
+`ARG` в нужном stage, чтобы использовать его. Другие build args не поддерживаются.
 
-Composer уже делает checkout до сборки. Build context — дерево исходников
-именно этого SHA; `.git` удаляется. Dockerfile не должен повторно клонировать
-репозиторий или выполнять `git checkout`. Сам `Dockerfile.tmpl` берётся из
-GitOps-репозитория и передаётся builder отдельно от исходников.
+Build context содержит дерево исходников выбранного SHA без `.git`.
+Composer выполняет checkout до сборки и передаёт Dockerfile отдельно.
 
 ## Образы, обновление и откат
 
-Тег `composer/build:<sha256>` зависит от трёх входов: repository, commit и
-содержимого отрендеренного Dockerfile. Для одинаковых входов prod и stage
-используют один образ. Общий Compose template подставляет этот тег и
-`pull_policy: never` только сервисам без собственного `image`; sidecars с
-явным image сохраняются. При нескольких сервисах без image все получат один
-собранный образ, с собственными command и остальными настройками.
+Тег `composer/build:<sha256>` зависит от repository, commit и отрендеренного
+Dockerfile. Если образ уже есть в Docker, Composer использует его без checkout
+и сборки. Иначе собирает из временного каталога и удаляет каталог после операции.
+Одновременные сборки одного тега объединяются.
 
-При переопределении общего template используйте `.Runtime.Image` и задайте
-`pull_policy: never` для локально собираемого сервиса. Старую копию общего
-шаблона нужно обновить самостоятельно: экспорт нового template не меняет
-существующий GitOps-репозиторий автоматически.
+Общий template подставляет образ и `pull_policy: never` сервисам без своего `image`.
+Несколько таких сервисов получают один образ. В собственном template используйте
+`.Runtime.Image` и `pull_policy: never`; обновляйте скопированный template вручную.
 
-Перед применением изменённого project Composer проверяет image в Docker.
-Найденный образ используется без checkout и сборки. При отсутствии образа
-исходники выгружаются во временный закрытый каталог, затем удаляются после
-завершения операции. Одновременные запросы одного тега объединяются только
-на время сборки; завершённые результаты Composer не кэширует.
+Ошибка checkout или сборки сохраняет работающий проект. Изменение конфига
+пересоздаёт контейнер с прежним образом, если переменные не изменили Dockerfile.
+При revert Composer использует сохранившийся образ или собирает его заново.
+Успешно применённые проекты без изменений пропускаются.
 
-Образ должен быть готов до удаления прежнего applied marker и до Compose Up.
-Ошибка checkout или сборки сохраняет работающий project и его прежний hash
-успеха. После успешной сборки действуют обычные правила выкатки: частичная
-ошибка Up инвалидирует прежний hash, поэтому Git revert не будет пропущен.
-
-Runtime config не входит в image hash. Config-only изменение пересоздаёт
-контейнер с прежним image; если изменённая переменная используется также в
-`Dockerfile.tmpl`, меняется Dockerfile и потребуется другой образ.
-Revert возвращает прежние входы и использует сохранившийся image. Если его
-удалили из Docker, Composer соберёт его заново при следующем применении project.
-Неизменённые успешные projects по-прежнему пропускаются; отдельного image
-или container drift polling нет.
-
-Base image с изменяемым tag не вызывает автоматическую пересборку уже готового
-образа. Для строгой воспроизводимости закрепляйте base images по digest и
-контролируйте остальные загружаемые во время Dockerfile зависимости.
+Изменение базового образа за тем же тегом не вызывает пересборку. Для воспроизводимости
+закрепляйте базовые образы по digest и версии зависимостей, загружаемых при сборке.
 
 ## Stage и выпуск
 
-Для проверки другого SHA задайте в `vars/stage.yaml`:
+При `source.branches: {prod: master, stage: dev}` меняйте `build.commit` в
+`base.yaml` и `Dockerfile.tmpl` на dev. Merge в master переносит сборку в prod;
+при одинаковых входах Docker использует тот же образ.
+
+Отдельный SHA для всех non-prod окружений можно задать в `vars/stage.yaml`:
 
 ```yaml
 build:
   commit: "89abcdef0123456789abcdef0123456789abcdef01"
 ```
 
-Repository и остальное наследуются из base. При выпуске перенесите проверенный
-SHA в `base.yaml`, удалите override commit из stage, но оставьте `stage.yaml`
-хотя бы с `{}`. Тогда оба окружения используют base SHA. Пока stage override
-существует, изменение base commit не обновляет stage на этот commit.
+Этот override продолжает действовать после merge. Чтобы вернуть общий SHA,
+перенесите его в `base.yaml` и удалите override, сохранив `stage.yaml` хотя бы с `{}`.
 
 ## Доступ к приватным исходникам
 
-`source.auth` отвечает за GitOps-репозиторий. Для исходников приложений есть
-отдельная общая настройка `build_auth` в host YAML; она применяется ко всем
-build repositories этой installation.
+`source.auth` задаёт доступ к GitOps-репозиторию, а `build_auth` в host YAML
+задаёт доступ ко всем репозиториям исходников этой installation.
 
 SSH:
 
@@ -142,39 +110,19 @@ build_auth:
   token_file: keys/build_token
 ```
 
-Пути разрешаются относительно host YAML. Ключи и token хранятся вне Git.
-Для публичного HTTPS repository `build_auth` можно не задавать. Для SSH нужны
-явно настроенные ключ и known_hosts; ambient SSH agent не используется.
-Git server должен разрешать fetch указанного SHA. Submodules отклоняются;
-Git LFS объекты не загружаются, в context останутся pointer files.
+Пути разрешаются относительно host YAML; ключи и токен хранятся вне Git.
+Для публичного HTTPS `build_auth` не нужен. SSH требует явных key и known_hosts;
+SSH agent не используется. Git-сервер должен разрешать fetch указанного SHA.
+Submodules не поддерживаются; вместо объектов Git LFS останутся файлы-указатели.
 
-## Runtime и проверки
+## Сборка и проверка
 
-Build adapter обращается к встроенному BuildKit Docker Engine через `/grpc`
-и `/session`, экспортируя результат в локальное хранилище Docker (`moby`).
-Для checkout и сборки Composer не вызывает внешние `git`, `ssh` или `buildx`.
-Docker daemon должен предоставлять эти BuildKit endpoints.
+Docker Engine должен предоставлять embedded BuildKit endpoints `/grpc` и `/session`.
+Composer использует go-git и BuildKit без внешних `git`, `ssh` и `buildx`.
+Registry credentials читаются из Docker config; настроенный credential helper
+должен быть установлен.
 
-Registry credentials берутся из Docker config. Если в нём настроен внешний
-credential helper, его executable остаётся необходим для соответствующего
-registry. Команды `RUN` внутри Dockerfile и зависимости самого приложения
-определяются содержимым образа, а не Composer.
-
-`validate`/`plan` проверяют build vars и рендерят Dockerfile, но не обращаются
-к source repository приложения или Docker и не доказывают успешность сборки.
-Сам build выполняется в apply/run внутри worker и общего deploy timeout;
-для долгих сборок увеличьте `reconcile.deploy_timeout` и timeout команды apply.
-
-Тесты checkout и embedded BuildKit запускаются отдельно от обычных unit-тестов:
-
-```sh
-go test -tags=integration ./internal/app/composer/adapters/git -count=1
-go test -tags=integration ./internal/app/composer/adapters/docker -count=1
-go test -race -tags=integration ./cmd/composer -count=1
-```
-
-При `source.branches: {prod: master, stage: dev}` меняйте исходный `build.commit`
-и `Dockerfile.tmpl` в dev. Merge в master переносит проверенную сборку в prod;
-Docker переиспользует образ, если repository, commit и rendered Dockerfile совпали.
-Для такой схемы не задавайте отдельный `build.commit` в stage.yaml без необходимости:
-после merge override продолжит действовать и stage может расходиться с prod.
+`validate` и `plan` проверяют vars и рендерят Dockerfile без обращения к исходникам
+или Docker. Сборка выполняется в `apply`/`run`. Для долгих сборок увеличьте
+`reconcile.deploy_timeout` и timeout команды apply. Команды integration-тестов
+приведены в [CONTRIBUTING.md](../CONTRIBUTING.md).
