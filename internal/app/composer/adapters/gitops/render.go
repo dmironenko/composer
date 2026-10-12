@@ -159,6 +159,11 @@ func loadModel(ctx context.Context, working, configHash string, output []byte, p
 		return fmt.Errorf("%w: compose validation failed", domain.ErrInvalid)
 	}
 
+	output, err = renderEnvironmentServices(model, output, project.Environment)
+	if err != nil {
+		return err
+	}
+
 	for name, service := range model.Services {
 		service.Labels = service.Labels.Add("io.composer.config", configHash)
 		model.Services[name] = service

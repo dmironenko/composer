@@ -33,7 +33,13 @@ make focused changes, and use existing tests. Add abstractions only for real nee
 - Each app directory is an independent Compose project. Each namespace/environment
   gets a network. Create all managed networks, including those requested by the
   `network` helper, before parallel Compose operations.
+- Compose service names stay unchanged in prod; other environments append
+  `-<environment>` after vars merge, including references between services.
+  No per-app suffix setting is needed.
 - Config-only updates must apply. Scaling must preserve existing replicas.
+- `app` holds only application config values. The built-in Compose template must
+  not read it. Put Docker settings in `compose` and Composer network helpers in
+  `compose.x-composer`; keep `build`, `enabled`, and `secrets` at the top level.
 - Decrypt secrets with age before merging vars. Keep `age_key_file` outside Git
   and plaintext out of reports. Use only Go templates; disable Compose interpolation
   so `$` in secrets survives.

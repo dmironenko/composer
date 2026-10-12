@@ -48,7 +48,9 @@ apps/demo/web/
 
 ## Add a config
 
-Store application settings under `app` in `base.yaml`, above `compose`:
+Store application settings under `app` in `base.yaml`, above `compose`.
+These values go into application configs; the built-in Compose template does not use them.
+Docker settings belong in `compose`:
 
 ```yaml
 app:
@@ -90,7 +92,9 @@ for `Dockerfile.tmpl`.
 
 ## Connect networks
 
-The built-in template accepts these optional settings under `app`:
+Use `compose.services.<service>.networks` and `compose.networks` for ordinary
+Docker network settings. The built-in template accepts these optional helpers
+under `compose.x-composer`:
 
 | Setting | Effect |
 | --- | --- |
@@ -101,11 +105,12 @@ The built-in template accepts these optional settings under `app`:
 For example, connect an app to production storage:
 
 ```yaml
-app:
-  networks:
-    storage:
-      namespace: storage
-      environment: prod
+compose:
+  x-composer:
+    networks:
+      storage:
+        namespace: storage
+        environment: prod
 ```
 
 These networks are created before deployments begin. `network_alias: api` adds
@@ -113,6 +118,25 @@ These networks are created before deployments begin. `network_alias: api` adds
 `route_namespace: product` joins that namespace through `env_prod`, `env_stage`,
 and any other configured environments. Routing rules stay in the proxy's config.
 Explicit service `networks` or `network_mode` override these automatic attachments.
+
+Service names are automatic: `meet` in prod, `meet-stage` in stage, and
+`meet-dan` in an environment named `dan`. The suffix comes from the environment
+key in `source.branches`, regardless of the Git branch name. No app setting is
+needed; an empty `stage.yaml` enables the same service outside prod.
+
+Keep `compose.services.meet` in vars for every environment. Composer names the
+service after merging vars and updates Compose references such as `depends_on`
+and `network_mode: service:meet`. This also changes Docker's automatic DNS name,
+so stage does not register `meet` on networks shared with prod.
+
+Addresses inside application configs and explicit network aliases remain under
+your control. In config templates, use `{{ .Env }}` to address the current stage,
+for example `meet{{ if ne .Env "prod" }}-{{ .Env }}{{ end }}:6080`.
+
+These helpers are consumed by Composer and omitted from the generated Compose
+file. For repositories using the old `app.networks`, `app.network_alias`,
+or `app.route_namespace` settings, move those keys into
+`compose.x-composer` when upgrading. Keys under `app` are now only template data.
 
 ## Customize the shared template
 
@@ -143,7 +167,7 @@ across apps or automatically fall back to prod when a stage service is missing.
 
 The directory path determines the Compose project and network names. Renaming
 an app or namespace removes the old projects and creates new ones; expect an
-interruption. Update references such as `app.route_namespace` and `app.networks`.
+interruption. Update `route_namespace` and `networks` under `compose.x-composer`.
 Old named volumes remain, but new project names do not automatically reuse them.
 Plan data migration before renaming an app with persistent storage. Fixed host
 ports must be released by the old containers before replacements can start.

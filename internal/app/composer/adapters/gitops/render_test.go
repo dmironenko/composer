@@ -90,7 +90,7 @@ func TestArbitraryProjects(t *testing.T) {
 			check(t, err == nil && len(projects) == 2, fmt.Sprintf("projects=%v error=%v", projects, err))
 
 			for _, project := range projects {
-				check(t, project.Error == "" && project.Enabled && model(t, project).Services[tc.service].Image == "busybox:stable",
+				check(t, project.Error == "" && project.Enabled && modelService(t, project, tc.service).Image == "busybox:stable",
 					fmt.Sprintf("project=%+v", project))
 			}
 
@@ -380,7 +380,7 @@ func testEnvironmentValues(t *testing.T, tc environmentCase) {
 		return
 	}
 
-	assertFile(t, model(t, project).Services["worker"].Volumes[0].Source, tc.expected)
+	assertFile(t, modelService(t, project, "worker").Volumes[0].Source, tc.expected)
 }
 
 type changeCase struct {
@@ -421,8 +421,8 @@ func testEncryptedAppConfig(t *testing.T, tc encryptedCase) {
 	t.Helper()
 	root, cfg := encryptedFixture(t, tc.environment)
 	write(t, root, "templates/compose.yaml.tmpl", strings.Replace(gitops.DefaultTemplate(),
-		`{{ toYAML (merge $defaults $service) | indent 4 }}`,
-		`{{ toYAML (merge (dict "restart" "always") $service) | indent 4 }}
+		`{{ toYAML $service | indent 4 }}`,
+		`{{ toYAML $service | indent 4 }}
     environment:
       PASSWORD: {{ quote $.Secrets.database.password }}`, 1))
 
@@ -444,7 +444,7 @@ func testEncryptedAppConfig(t *testing.T, tc encryptedCase) {
 func assertEncryptedConfig(t *testing.T, project domain.Project, expected string) {
 	t.Helper()
 
-	service := model(t, project).Services["api-http"]
+	service := modelService(t, project, "api-http")
 	check(t, service.Environment["PASSWORD"] != nil && *service.Environment["PASSWORD"] == expected,
 		"Compose changed the secret")
 
@@ -481,4 +481,17 @@ func model(t *testing.T, project domain.Project) *types.Project {
 	}
 
 	return model
+}
+
+func modelService(t *testing.T, project domain.Project, name string) types.ServiceConfig {
+	t.Helper()
+
+	if project.Environment != "prod" {
+		name += "-" + project.Environment
+	}
+
+	service, exists := model(t, project).Services[name]
+	check(t, exists, "missing service", name)
+
+	return service
 }

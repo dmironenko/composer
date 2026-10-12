@@ -1,14 +1,14 @@
 {{- $compose := .Vars.compose -}}
-{{- $app := get .Vars "app" -}}
+{{- $options := get $compose "x-composer" -}}
 {{- $networks := dict "default" (dict "external" true "name" .Runtime.NetworkName) -}}
 {{- $connections := dict "default" (dict) -}}
 
-{{- range $name, $target := get $app "networks" -}}
+{{- range $name, $target := get $options "networks" -}}
 {{- $networks = merge $networks (dict $name (dict "external" true "name" (network $target.environment $target.namespace))) -}}
 {{- $connections = merge $connections (dict $name (dict)) -}}
 {{- end -}}
 
-{{- with get $app "route_namespace" -}}
+{{- with get $options "route_namespace" -}}
 {{- $namespace := . -}}
 {{- range $.Environments -}}
 {{- $name := printf "env_%s" . -}}
@@ -17,7 +17,7 @@
 {{- end -}}
 {{- end -}}
 
-{{- with get $app "network_alias" -}}
+{{- with get $options "network_alias" -}}
 {{- $connections = merge $connections (dict "default" (dict "aliases" (list (printf "%s-%s" . $.Env)))) -}}
 {{- end -}}
 
@@ -35,15 +35,17 @@ services:
 {{- end -}}
 {{- if and $.Runtime.Image (not (get $service "image")) -}}
 {{- $defaults = merge $defaults (dict "image" $.Runtime.Image "pull_policy" "never") -}}
-{{- end }}
-{{ toYAML (merge $defaults $service) | indent 4 }}
+{{- end -}}
+{{- $service = merge $defaults $service }}
+
+{{ toYAML $service | indent 4 }}
 {{- end }}
 
 networks:
 {{ toYAML (merge $networks (get $compose "networks")) | indent 2 }}
 
 {{- range $name, $value := $compose }}
-{{- if and (ne $name "services") (ne $name "networks") (ne $name "name") }}
+{{- if and (ne $name "services") (ne $name "networks") (ne $name "name") (ne $name "x-composer") }}
 {{ quote $name }}:
 {{ toYAML $value | indent 2 }}
 {{- end }}
