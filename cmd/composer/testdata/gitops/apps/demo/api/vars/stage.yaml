@@ -1,1 +1,2 @@
-message: "api: staging"
+app:
+  message: "api: staging"

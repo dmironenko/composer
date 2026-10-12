@@ -85,7 +85,7 @@ func TestGitOpsLifecycle(t *testing.T) {
 	content += "  volumes:\n    data: {}\n"
 	writeFile(t, basePath, content)
 	writeFile(t, filepath.Join(repoPath, "apps/demo/api/vars/stage.yaml"),
-		"message: 'api: staging'\ncompose:\n  services:\n    api-http:\n      deploy: {replicas: 1}\n")
+		"app:\n  message: 'api: staging'\n\ncompose:\n  services:\n    api-http:\n      deploy: {replicas: 1}\n")
 
 	repo, setupErr := gogit.PlainInitWithOptions(repoPath, &gogit.PlainInitOptions{
 		InitOptions: gogit.InitOptions{DefaultBranch: plumbing.NewBranchReferenceName("master")},

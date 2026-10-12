@@ -27,6 +27,11 @@ Compose SDK. Explicit service `networks`, `network_mode`, and `logging` replace
 the corresponding defaults. Vars maps merge recursively, lists and scalars
 replace previous values, and `null` removes a key.
 
+Use only `build`, `app`, and `compose` at the top level, in that order. Omit
+unused blocks. `build` describes source builds; `app` holds service settings
+and encrypted secrets; `compose` holds Docker settings and Composer options
+under `x-composer`.
+
 For a one-off initialization service, set `restart: 'no'` to override the default.
 Use Compose `depends_on` with `condition: service_completed_successfully` for
 services that must wait for that job within the same app. Separate apps start
@@ -49,6 +54,9 @@ apps/demo/web/
 ## Add a config
 
 Store application settings under `app` in `base.yaml`, above `compose`.
+Match the service's config format so templates can serialize it directly without
+renaming keys or assembling nested objects. Avoid an extra `app.config` block
+unless the app also needs another format, such as `app.env`.
 These values go into application configs; the built-in Compose template does not use them.
 Docker settings belong in `compose`:
 
@@ -89,6 +97,39 @@ app:
 Config changes recreate the affected app's containers even if its image stays
 the same. See [secrets](secrets.md) for encrypted values in `.Vars.app` and
 [source builds](builds.md) for `Dockerfile.tmpl`.
+
+## Environment variables
+
+Keep environment variables under `app.env`, with the names expected by the
+service. Composer passes them to a container through a rendered file:
+
+```yaml
+app:
+  env:
+    LOG_LEVEL: info
+    API_TOKEN: ENC[...]
+
+compose:
+  services:
+    api:
+      image: ghcr.io/your-org/api:v1.0.0
+      env_file: ./configs/app.env
+```
+
+Create `configs/app.env.tmpl`:
+
+```gotemplate
+{{- range $name, $value := .Vars.app.env }}
+{{ $name }}={{ quoteEnv $value }}
+{{- end }}
+```
+
+Use string values; quote YAML numbers and booleans when needed. `quoteEnv`
+quotes each value, preserves URL characters such as `&`, and escapes `$` to
+prevent Compose from expanding it. `app.env` is template data; the `env_file`
+reference connects it to the container. For a service with both a config file
+and environment variables, use `app.config`
+and `app.env`, and serialize `.Vars.app.config` in the config template.
 
 ## Connect networks
 
@@ -152,7 +193,7 @@ when merged by the template.
 
 Templates receive `.Vars`, `.Installation`, `.Env`, `.Environments`,
 `.Namespace`, `.App`, and `.Runtime` (`ProjectName`, `NetworkName`, `Image`).
-Helpers: `toYAML`, `toJSON`, `quote`, `indent`, `get`, `default`, `dict`, `list`,
+Helpers: `toYAML`, `toJSON`, `quote`, `quoteEnv`, `indent`, `get`, `default`, `dict`, `list`,
 `merge`, and `network`. Template expressions inside vars are not evaluated again.
 Compose's `${VAR}` interpolation is disabled; use Go templates for substitutions.
 
@@ -174,8 +215,19 @@ ports must be released by the old containers before replacements can start.
 
 ## Remove or disable an app
 
-Delete its directory and commit, or set `enabled: false` at the top of `base.yaml`.
-To disable it only outside prod, remove `stage.yaml` or set `enabled: false` there.
+Delete its directory and commit, or set this in `base.yaml`:
+
+```yaml
+compose:
+  x-composer:
+    enabled: false
+```
+
+To disable it only outside prod, remove `stage.yaml` or put the same override there.
 Composer removes the affected containers and retains volumes, images, and
 namespace networks. To remove an app from every environment, delete it from
 every mapped branch. Revert the commit to restore the app.
+
+The old top-level `enabled` key remains readable for rollbacks.
+`compose.x-composer.enabled` takes precedence when both are present; use it
+in new configs.

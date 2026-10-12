@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -52,6 +53,9 @@ func functions(data templateData) template.FuncMap {
 			result, err := json.Marshal(fmt.Sprint(value))
 
 			return string(result), err
+		},
+		"quoteEnv": func(value any) string {
+			return strings.ReplaceAll(strconv.Quote(fmt.Sprint(value)), "$", `\$`)
 		},
 		"indent": indent,
 		"get":    func(values map[string]any, key string) any { return values[key] },

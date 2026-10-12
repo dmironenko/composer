@@ -61,6 +61,33 @@ func TestEnvironmentValues(t *testing.T) {
 		},
 		{name: "disabled stage", environment: "stage", present: true, override: "enabled: false"},
 		{name: "disabled prod", environment: "prod", base: "enabled: false\n" + base},
+		{
+			name: "compose disables prod", environment: "prod",
+			base: strings.Replace(base, "compose:\n", "compose:\n  x-composer: {enabled: false}\n", 1),
+		},
+		{
+			name: "compose disables stage", environment: "stage", present: true,
+			override: "compose: {x-composer: {enabled: false}}",
+		},
+		{
+			name: "compose enables stage", environment: "stage", present: true,
+			base:     strings.Replace(base, "compose:\n", "compose:\n  x-composer: {enabled: false}\n", 1),
+			override: "compose: {x-composer: {enabled: true}}", enabled: true, expected: "base",
+		},
+		{
+			name: "compose takes precedence over legacy", environment: "prod",
+			base:    strings.Replace("enabled: false\n"+base, "compose:\n", "compose:\n  x-composer: {enabled: true}\n", 1),
+			enabled: true, expected: "base",
+		},
+		{
+			name: "null removes compose flag", environment: "stage", present: true,
+			base:     strings.Replace(base, "compose:\n", "compose:\n  x-composer: {enabled: false}\n", 1),
+			override: "compose: {x-composer: {enabled: null}}", enabled: true, expected: "base",
+		},
+		{
+			name: "compose flag does not enable missing stage", environment: "stage",
+			base: strings.Replace(base, "compose:\n", "compose:\n  x-composer: {enabled: true}\n", 1),
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -147,6 +174,74 @@ func TestTemplate(t *testing.T) {
 			if actual := model(t, project).Services["worker"].Restart; actual != tc.expected {
 				t.Fatalf("restart=%q expected=%q", actual, tc.expected)
 			}
+		})
+	}
+}
+
+//nolint:maintidx // Keep env values, their template and literal-value assertions together.
+func TestAppEnvironmentFile(t *testing.T) {
+	t.Parallel()
+
+	for _, environment := range []string{"prod", "stage"} {
+		t.Run(environment, func(t *testing.T) {
+			t.Parallel()
+			root, cfg := fixture(t, "demo", "worker")
+			cfg.Environments = []string{environment}
+			document := `app:
+  env:
+    URL: 'https://example.test/?a=1&b=2'
+    TOKEN: 'literal-$UNSET-${UNSET}-"quoted"-''single''-\slash-$$'
+    COUNT: '3'
+    EMPTY: ''
+    MULTILINE: |
+      first line
+      second line
+` + strings.Replace(base, "      image:", "      env_file: ./configs/app.env\n      image:", 1)
+			write(t, root, "apps/demo/worker/vars/base.yaml", document)
+			write(t, root, "apps/demo/worker/vars/stage.yaml", "{}")
+			write(t, root, "apps/demo/worker/configs/app.env.tmpl", `{{- range $name, $value := .Vars.app.env }}
+{{ $name }}={{ quoteEnv $value }}
+{{- end }}`)
+
+			project := loadOne(t, cfg, root)
+			check(t, project.Error == "", project.Error)
+			service := modelService(t, project, "worker")
+
+			expected := map[string]string{
+				"URL":       "https://example.test/?a=1&b=2",
+				"TOKEN":     `literal-$UNSET-${UNSET}-"quoted"-'single'-\slash-$$`,
+				"COUNT":     "3",
+				"EMPTY":     "",
+				"MULTILINE": "first line\nsecond line\n",
+			}
+			for name, value := range expected {
+				actual := service.Environment[name]
+				check(t, actual != nil, "missing environment variable", name)
+				check(t, *actual == value, fmt.Sprintf("environment variable %s=%q, want %q", name, *actual, value))
+			}
+		})
+	}
+}
+
+func TestInvalidEnabledValues(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct{ name, document string }{
+		{name: "legacy", document: "enabled: '" + secret + "'\n" + base},
+		{
+			name:     "compose",
+			document: strings.Replace(base, "compose:\n", "compose:\n  x-composer: {enabled: '"+secret+"'}\n", 1),
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			root, cfg := fixture(t, "jobs", "processor")
+			write(t, root, "apps/jobs/processor/vars/base.yaml", tc.document)
+
+			project := loadOne(t, cfg, root)
+			check(t, project.Error != "" && !project.Enabled, "invalid flag enabled the project")
+			assertPrivate(t, project, secret)
 		})
 	}
 }

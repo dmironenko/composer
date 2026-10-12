@@ -208,7 +208,15 @@ func loadValues(files fs.FS, folder, ageKeyFile string, data *templateData, proj
 }
 
 func validateValues(data *templateData, project *domain.Project) error {
-	if enabled, exists := data.Vars["enabled"]; exists {
+	enabled, exists := data.Vars["enabled"]
+	compose, _ := data.Vars["compose"].(map[string]any)
+
+	options, _ := compose["x-composer"].(map[string]any)
+	if value, ok := options["enabled"]; ok {
+		enabled, exists = value, true
+	}
+
+	if exists {
 		switch enabled {
 		case true:
 		case false:

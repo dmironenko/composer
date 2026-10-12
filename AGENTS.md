@@ -37,9 +37,13 @@ make focused changes, and use existing tests. Add abstractions only for real nee
   `-<environment>` after vars merge, including references between services.
   No per-app suffix setting is needed.
 - Config-only updates must apply. Scaling must preserve existing replicas.
-- `app` holds only application config values. The built-in Compose template must
-  not read it. Put Docker settings in `compose` and Composer network helpers in
-  `compose.x-composer`; keep `build` and `enabled` at the top level.
+- Use only `build`, `app`, and `compose` at the top level, in that order; omit
+  unused blocks. `app` holds application settings and secrets in the service's
+  native shape so config templates can use `toYAML` or `toJSON` directly. Put
+  environment variables with their original names under `app.env` and render
+  an env file referenced by `compose.services.<service>.env_file`.
+  The built-in Compose template must not read `app`. Put Docker settings in
+  `compose` and Composer options, including `enabled`, in `compose.x-composer`.
 - Decrypt `ENC[...]` values anywhere in vars with age before merging vars.
   Keep `age_key_file` outside Git and plaintext out of reports. Use only Go templates; disable Compose interpolation
   so `$` in secrets survives.

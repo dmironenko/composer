@@ -1,4 +1,6 @@
-message: "api: production"
+app:
+  message: "api: production"
+
 compose:
   services:
     api-http:

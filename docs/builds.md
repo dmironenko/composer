@@ -9,12 +9,12 @@ Docker, which stores the images and build cache.
 In `apps/<namespace>/<app>/vars/base.yaml`:
 
 ```yaml
-app:
-  listen: :8080
-
 build:
   repository: https://github.com/example/api.git
   tag: v1.0.0
+
+app:
+  listen: :8080
 
 compose:
   services:

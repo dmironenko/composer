@@ -86,7 +86,7 @@ func TestSourceBuildRollout(t *testing.T) {
 	}
 
 	writeFile(t, filepath.Join(folder, "Dockerfile.tmpl"), sourceDockerfile)
-	writeFile(t, filepath.Join(folder, "configs/message.tmpl"), "{{ .Vars.message }}\n")
+	writeFile(t, filepath.Join(folder, "configs/message.tmpl"), "{{ .Vars.app.message }}\n")
 	writeFile(t, filepath.Join(folder, "vars/stage.yaml"), "build:\n  tag: "+second+"\n")
 
 	apply := func(tag, message string) {
@@ -207,7 +207,10 @@ func sourceBuildVars(repository, tag, message string) string {
 	return fmt.Sprintf(`build:
   repository: %s
   tag: %s
-message: %s
+
+app:
+  message: %s
+
 compose:
   services:
     api:
@@ -262,7 +265,7 @@ func TestBranchDockerfileRollout(t *testing.T) {
 	writeFile(t, filepath.Join(folder, "Dockerfile.tmpl"), sourceDockerfile)
 	writeFile(t, filepath.Join(folder, "vars/base.yaml"), sourceBuildVars(repository, tag, "config-one"))
 	writeFile(t, filepath.Join(folder, "vars/stage.yaml"), "{}\n")
-	writeFile(t, filepath.Join(folder, "configs/message.tmpl"), "{{ .Vars.message }}\n")
+	writeFile(t, filepath.Join(folder, "configs/message.tmpl"), "{{ .Vars.app.message }}\n")
 	commitAll(t, repo)
 
 	master, err := repo.Head()
