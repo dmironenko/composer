@@ -1,4 +1,4 @@
-![views](https://komarev.com/ghpvc/?username=dmironenko-composer&label=views&color=blue&abbreviated=true&style=flat)
+![views](https://hits.sh/github.com/dmironenko/composer.svg?style=flat&label=views&color=007ec6)
 
 # Composer
 
