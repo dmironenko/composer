@@ -1,7 +1,7 @@
 # Apps
 
 An app is a directory at `apps/<namespace>/<app>`. Its `vars/base.yaml` supplies
-settings to the shared Compose template. One app can contain several services;
+Compose settings and template variables. One app can contain several services;
 Composer deploys that Compose project independently of other apps.
 
 ## Add an app
@@ -13,8 +13,6 @@ compose:
   services:
     web:
       image: nginx:1.28-alpine
-      deploy:
-        replicas: 2
 ```
 
 Commit the file to a watched branch. For a remote source, push it too.
@@ -37,6 +35,16 @@ concurrently, so clients must retry unavailable dependencies.
 Scale through `deploy.replicas`. Avoid `container_name` and fixed host ports on
 services that need multiple replicas. Put published ports on your ingress.
 Changing replica count preserves existing replicas.
+
+An app directory can contain:
+
+```text
+apps/demo/web/
+  vars/base.yaml            # required: shared settings, including production
+  vars/stage.yaml           # optional: enable non-prod and override settings
+  configs/config.yaml.tmpl  # optional: application config template
+  Dockerfile.tmpl           # optional: build an image from source
+```
 
 ## Add a config
 
@@ -131,9 +139,19 @@ that differs from the built-in options above.
 Other external networks must already exist. Composer does not order startup
 across apps or automatically fall back to prod when a stage service is missing.
 
+## Rename an app or namespace
+
+The directory path determines the Compose project and network names. Renaming
+an app or namespace removes the old projects and creates new ones; expect an
+interruption. Update references such as `app.route_namespace` and `app.networks`.
+Old named volumes remain, but new project names do not automatically reuse them.
+Plan data migration before renaming an app with persistent storage. Fixed host
+ports must be released by the old containers before replacements can start.
+
 ## Remove or disable an app
 
 Delete its directory and commit, or set `enabled: false` at the top of `base.yaml`.
 To disable it only outside prod, remove `stage.yaml` or set `enabled: false` there.
 Composer removes the affected containers and retains volumes, images, and
-namespace networks. Revert the commit to restore the app.
+namespace networks. To remove an app from every environment, delete it from
+every mapped branch. Revert the commit to restore the app.

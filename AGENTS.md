@@ -99,4 +99,4 @@ reboot. Keep test infrastructure out of the runnable composer-example repository
 
 See [architecture](docs/architecture.md) for dependency rules,
 [builds](docs/builds.md) for source builds, and [systemd](docs/systemd.md) for
-installation and Ubuntu checks.
+installation, and [Contributing](CONTRIBUTING.md#test-systemd-changes) for Ubuntu checks.

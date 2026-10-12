@@ -14,7 +14,7 @@ source:
     prod: master
     stage: dev
   poll_interval: 1m
-state_dir: my-stack-state
+state_dir: my-gitops-state
 ```
 
 Create both branches before starting. Local mode reads committed snapshots
@@ -42,17 +42,31 @@ Only the name `prod` is special. Branch names have no built-in meaning:
 branch, including Dockerfiles and templates. Missing `stage.yaml` disables that
 app in all non-prod environments; an empty file or `{}` enables it.
 
-To add stage to the README example:
+To add stage to the [README walkthrough](../README.md#try-it-locally), enable the
+app on a new branch and give it a different host port. If you already removed
+the demo app, restore it first with `git -C my-gitops revert --no-edit HEAD`.
 
 ```sh
 git -C my-gitops switch -c dev
-printf '{}\n' > my-gitops/apps/demo/nginx/vars/stage.yaml
+cat > my-gitops/apps/demo/nginx/vars/stage.yaml <<'YAML'
+compose:
+  services:
+    nginx:
+      ports:
+        - 127.0.0.1:18082:80
+YAML
 git -C my-gitops add .
 git -C my-gitops commit -m 'feat: enable nginx on stage'
 ```
 
-Set `stage: dev` in the host YAML. Make changes to `base.yaml` on `dev`, check
-stage, then promote them:
+The generated host YAML initially maps both environments to `master`. Change
+`stage: master` to `stage: dev` in `composer.yaml`, then start
+`composer run --config composer.yaml` if it is not running. Prod remains at
+[localhost:18081](http://127.0.0.1:18081/); stage is at
+[localhost:18082](http://127.0.0.1:18082/). Both ports must be free before deployment.
+
+In another terminal, edit an app file on `dev` and commit it. For example, change
+`apps/demo/nginx/configs/index.html`. Check the result on stage, then promote it:
 
 ```sh
 git -C my-gitops switch master
@@ -60,14 +74,16 @@ git -C my-gitops merge dev
 ```
 
 Keep shared settings in `base.yaml`; reserve `stage.yaml` for differences such as
-test credentials. Its overrides remain active after a merge into production.
-There is no `prod.yaml` in the current format.
+test credentials. After the merge, prod still reads only `base.yaml`; non-prod
+environments keep applying their `stage.yaml` overrides. There is no `prod.yaml`.
 
 For a personal environment, create its branch and add `alice: users/alice` under
 `source.branches`. Names must start with a lowercase letter, contain only
 lowercase letters, digits, or hyphens, and be at most 63 characters long.
-Each environment gets separate projects and namespace networks. Routing is
-configured in GitOps; see the [example](https://github.com/dmironenko/composer-example#personal-environments).
+Each environment gets separate projects and namespace networks. If you use fixed
+host ports as in the walkthrough, give each environment a free port in its branch.
+For ingress routing without per-app host ports, see the
+[example](https://github.com/dmironenko/composer-example#personal-environments).
 
 `run` reloads host YAML each pass. Removing an environment removes its containers,
 including after an agent restart, but keeps its volumes and images. Missing
@@ -96,7 +112,7 @@ source:
 the agent user. Omit `auth` for an anonymous public repository. Remote mode uses
 shallow Git fetches; commits must be pushed before Composer can see them.
 A GitHub fine-grained token needs access to this repository and read-only
-**Contents** permission; Composer does not need write or workflow access.
+`Contents` permission; Composer does not need write or workflow access.
 
 For SSH, use an SSH URL and replace `auth`:
 
@@ -136,3 +152,28 @@ and contains decrypted configs, even after `validate` or `plan`.
 Only one agent can use a state directory at a time.
 
 GitOps contents have Docker-level privileges. Use repositories you trust.
+
+## Check a deployment
+
+Commands read `composer.yaml` by default. Add `--config PATH` to use another file.
+
+| Command | What it does |
+| --- | --- |
+| `composer config check` | Check host YAML without contacting Git or Docker |
+| `composer validate` | Fetch Git and validate committed app definitions without Docker |
+| `composer plan` | Compare them with the last successful deployment without Docker |
+| `composer apply --wait` | Deploy once and retry until ready or timeout |
+| `composer run` | Poll Git and deploy changes continuously |
+
+Stop a running agent before using `validate`, `plan`, or `apply` with the same
+state directory. Start it again when finished. Stopping Composer leaves the
+application containers running.
+
+Reports contain the Git `commits` used for each environment and an `action` for
+each app. `apply` means a deployment was needed; `noop` means its configuration
+matches the last successful deployment. A `failed` action includes an `error`.
+Check the exit status of one-shot commands as well as the report.
+
+If an edit did not deploy, check that it was committed to the mapped branch
+(and pushed in remote mode). A non-prod app also needs `vars/stage.yaml`.
+Use `docker ps` and `docker logs CONTAINER` to check the running application.

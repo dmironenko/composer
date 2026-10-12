@@ -50,9 +50,42 @@ go test -tags=integration ./internal/app/composer/adapters/docker -count=1
 go test -race -tags=integration ./cmd/composer -count=1
 ```
 
-Run systemd tests only in a disposable Ubuntu VM as described in
-[docs/systemd.md](docs/systemd.md).
+Run systemd tests only in a disposable Ubuntu VM, as described below.
 
 Keep credentials, rendered state, `vendor/`, and binaries out of commits.
 Age keys in the test fixtures are public and must only be used in tests.
 Run `gitleaks git --redact` to check for secrets before submitting.
+
+## Release
+
+Commit and push the release changes, including the release workflow, then tag
+that commit:
+
+```sh
+git tag -a v1.0.0 -m "release v1.0.0"
+git push origin v1.0.0
+```
+
+The release workflow runs on `v*` tag pushes. It tests the code, checks for known
+vulnerabilities, and publishes a GitHub Release with Linux and macOS archives
+for amd64 and arm64, plus `checksums.txt`. Each archive contains `composer`,
+`LICENSE`, and `README.md`; the binary reports the tag with `composer --version`.
+Users do not need Go to run it. No additional GitHub secrets are required.
+
+## Test systemd changes
+
+Run [test/systemd/check.sh](test/systemd/check.sh) as root in a disposable Ubuntu
+VM with Docker, Git, and Python 3. Copy the script to
+`/var/tmp/systemd-check.sh` and a Linux Composer binary to `/tmp/composer`:
+
+```sh
+sudo bash /var/tmp/systemd-check.sh /tmp/composer
+# note the printed /var/tmp/composer-systemd.<suffix> directory.
+sudo reboot
+# after reconnecting:
+sudo bash /var/tmp/systemd-check.sh reboot-check /var/tmp/composer-systemd.<suffix>
+```
+
+The check covers installation, updates, stop/start, crash recovery, config-only
+deployment, preservation of an unrelated unit, and boot startup with the same
+application container. Delete the VM when finished.
