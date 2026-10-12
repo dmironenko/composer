@@ -155,7 +155,7 @@ shutil.copyfile(source, args[args.index("-o") + 1])
                 self.assert_preserved(self.run_installer(*args))
 
     def test_shasum_fallback(self):
-        for name in ["awk", "tar", "mktemp", "rm", "mkdir", "install", "mv", "shasum"]:
+        for name in ["awk", "tar", "gzip", "mktemp", "rm", "mkdir", "install", "mv", "shasum"]:
             (self.tools / name).symlink_to(shutil.which(name))
         self.env["PATH"] = str(self.tools)
         result = self.run_installer(VERSION, str(self.destination))
