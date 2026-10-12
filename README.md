@@ -1,98 +1,50 @@
+![views](https://komarev.com/ghpvc/?username=dmironenko-composer&label=views&color=blue&abbreviated=true&style=flat)
+
 # Composer
 
-Composer deploys Docker Compose applications from Git. Run it on your Docker host,
-commit your deployment files, and push. It checks the repository and applies
-changed apps, including changes to their config files. Revert a commit to roll back.
+Composer deploys Docker Compose apps from Git. It polls your repository and applies
+changes, including config updates. Each app has its own Compose project, so updating
+one app leaves unrelated containers running. Revert a commit to roll back.
 
-Each app has its own Compose project. Updating an API leaves unrelated apps,
-such as a database, running. You can map different Git branches to production
-and staging on the same host. This workflow is called GitOps.
+Map Git branches to prod and staging environments on the same Docker host.
+Composer handles fetching and deployment; GitHub Actions is optional.
 
-## Projects using Composer
+## Install
 
-- [composer-example](https://github.com/dmironenko/composer-example): a runnable
-  demo with source builds, encrypted secrets, HTTPS, and routing between prod and stage.
-- [dwspurpleteam/deployer](https://github.com/dwspurpleteam/deployer): the production
-  deployment repository for Vareonix calls. It runs OpenVidu and Meet with nginx,
-  Certbot, MongoDB, Redis, and MinIO.
-
-In `deployer`, look at [apps/calls](https://github.com/dwspurpleteam/deployer/tree/main/apps/calls)
-for the calling services, [apps/ingress](https://github.com/dwspurpleteam/deployer/tree/main/apps/ingress)
-for HTTPS and environment routing, and [apps/storage](https://github.com/dwspurpleteam/deployer/tree/main/apps/storage)
-for shared databases and object storage. The app files include config templates
-and encrypted secrets. `metal/` contains Ansible host provisioning; Composer
-manages the apps.
-
-## Try it locally
-
-You need Git and a running Docker Engine or Docker Desktop.
-Use bash or zsh for the commands below, with `curl` available
-and Git configured to create commits. The walkthrough works on macOS and Linux
-and uses `127.0.0.1:18081`; choose another port if it is busy.
-
-### Install
-
-Install a specific release:
+On macOS or Linux:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/master/install.sh | sh -s -- v1.0.0
 ```
 
-The script detects Linux or macOS and amd64 or arm64, verifies the release's
-SHA256 checksum, and installs to `~/.local/bin` without sudo. Go and the Docker
-Compose CLI are not required. Repeat with another release tag to update.
+The [installer](install.sh) detects your architecture, checks SHA256, and installs
+to `~/.local/bin` without sudo. Go is not required. Change the version to update.
 
-If `~/.local/bin` is not on your PATH, add this to your bash or zsh profile:
+If needed, add `~/.local/bin` to your PATH. For bash or zsh:
 
 ```sh
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-For fish, use `fish_add_path ~/.local/bin`. Open a new terminal and run
-`composer --version`. If an older installation takes precedence, check
-`command -v composer` and remove the old binary or adjust your PATH.
+Add that line to your shell profile to keep it. For fish, use
+`fish_add_path ~/.local/bin`. Check the installation with `composer --version`.
 
-For a system-wide installation, pass the directory explicitly:
+## Try it locally
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/master/install.sh | sudo sh -s -- v1.0.0 /usr/local/bin
-```
+You need Git and a running Docker Engine or Docker Desktop. The commands below
+use bash or zsh and port `18081`; choose another port if it is busy.
 
-You can [read the script](install.sh) first or download an archive from
-[Releases](https://github.com/dmironenko/composer/releases).
-
-### 1. Create a deployment repository
-
-Run this in a new directory:
+### 1. Create a repository and app
 
 ```sh
 mkdir composer-demo
 cd composer-demo
-composer init my-gitops --branch master --installation my-stack --config composer.yaml
-```
+composer init example --branch master --installation example
+cd example
+git init -b master
 
-This creates two things:
-
-| Path | What you put there |
-| --- | --- |
-| `composer.yaml` | Host settings: where to read Git, which branches to deploy, and where to store state |
-| `my-gitops/apps/` | Deployment files that you commit: images, Compose settings, and app configs |
-
-The host config stays outside Git. `my-stack` is the installation name used in
-Docker resource names. Composer stores generated files and deployment state in
-`my-gitops-state/`, also outside Git.
-
-Open `composer.yaml` and change `source.poll_interval` from `1m` to `2s` for this
-local walkthrough. The other generated settings can stay as they are.
-
-### 2. Add an app
-
-An app lives at `apps/<namespace>/<app>`. A namespace groups apps on a Docker
-network. Here, `demo` is the namespace and `nginx` is the app:
-
-```sh
-mkdir -p my-gitops/apps/demo/nginx/vars my-gitops/apps/demo/nginx/configs
-cat > my-gitops/apps/demo/nginx/vars/base.yaml <<'YAML'
+mkdir -p apps/demo/nginx/vars apps/demo/nginx/configs
+cat > apps/demo/nginx/vars/base.yaml <<'YAML'
 compose:
   services:
     nginx:
@@ -102,92 +54,64 @@ compose:
       volumes:
         - ./configs/index.html:/usr/share/nginx/html/index.html:ro
 YAML
-printf '%s\n' 'Hello from Composer' > my-gitops/apps/demo/nginx/configs/index.html
+printf '%s\n' 'Hello from Composer' > apps/demo/nginx/configs/index.html
+
+git add .
+git commit -m 'feat: add nginx'
 ```
 
-`base.yaml` holds app settings. Under `compose`, use the same keys as in a
-Compose file. This example mounts a page from `configs/` into nginx.
-An app can contain more than one service; Composer deploys them together.
+Apps live at `apps/<namespace>/<app>`. Put Docker Compose settings under `compose`
+in `vars/base.yaml`. The host config (`../composer.yaml`) and deployment state
+(`../example-state/`) stay outside Git.
 
-### 3. Deploy it
+### 2. Deploy
 
-Composer reads committed files, so create the first commit before deploying:
+From the `example` directory:
 
 ```sh
-git -C my-gitops init -b master
-git -C my-gitops add .
-git -C my-gitops commit -m 'feat: add nginx'
-composer apply --config composer.yaml --wait
+composer apply --config ../composer.yaml --wait
 curl http://127.0.0.1:18081/
 ```
 
-The response should be `Hello from Composer`. You can also open
-[localhost:18081](http://127.0.0.1:18081/) in your browser.
-
-`apply` deploys once. This app runs in `prod`: apps need a `vars/stage.yaml` file
-to run in other environments. You can add staging after this walkthrough.
-
-### 4. Deploy a change automatically
-
-Start the agent and leave it running:
+You should see `Hello from Composer`. Start watching for commits:
 
 ```sh
-composer run --config composer.yaml
+composer run --config ../composer.yaml
 ```
 
-In a second terminal, open the same `composer-demo` directory and run:
+The default poll interval is one minute. For faster local feedback, set
+`poll_interval` to `2s` under `source` in `../composer.yaml`.
+
+### 3. Change the app
+
+In a second terminal, open `composer-demo/example` and run:
 
 ```sh
-printf '%s\n' 'Updated by a Git commit' > my-gitops/apps/demo/nginx/configs/index.html
-git -C my-gitops add apps/demo/nginx/configs/index.html
-git -C my-gitops commit -m 'feat: update welcome page'
+printf '%s\n' 'Updated by a Git commit' > apps/demo/nginx/configs/index.html
+git add .
+git commit -m 'feat: update welcome page'
 ```
 
-Wait for the next poll and reload the page. It should say `Updated by a Git commit`.
-Composer redeploys nginx because its config changed; the image stays the same.
-Local mode reads commits directly from your disk. A remote repository also needs
-`git push`. Saving a file without committing it does not deploy anything.
+Reload [localhost:18081](http://127.0.0.1:18081/) after the next poll to see the change.
+Local mode reads commits from disk; remote repositories also need `git push`.
+Run `git revert --no-edit HEAD` to roll back. Ctrl-C stops Composer and leaves the
+app running; [delete the app through Git](docs/apps.md#remove-or-disable-an-app)
+to remove its containers.
 
-To roll back this change:
+## Projects using Composer
 
-```sh
-git -C my-gitops revert --no-edit HEAD
-```
+- [composer-example](https://github.com/dmironenko/composer-example): source builds,
+  encrypted secrets, HTTPS, and prod/stage routing.
+- [dwspurpleteam/deployer](https://github.com/dwspurpleteam/deployer): Vareonix calls
+  in production, with OpenVidu, nginx, Certbot, and shared storage.
 
-After the next poll, the page should say `Hello from Composer` again.
-Ctrl-C in the agent terminal stops polling and leaves nginx running.
+## Guides
 
-### 5. Remove the demo app
+- [Run on Ubuntu with systemd](docs/systemd.md)
+- [Add apps and configs](docs/apps.md)
+- [Configure branches, environments, and Git authentication](docs/configuration.md)
+- [Build from source](docs/builds.md)
+- [Use encrypted secrets](docs/secrets.md)
 
-After stopping the agent, remove the app through Git:
-
-```sh
-git -C my-gitops rm -r apps/demo/nginx
-git -C my-gitops commit -m 'chore: remove demo nginx'
-composer apply --config composer.yaml --wait
-```
-
-Composer removes the app's containers. It retains volumes, images, and namespace
-networks. Keep the state directory while managing a deployment: Composer uses
-it to track what must be updated or removed.
-
-## Use it for your project
-
-[Run on Ubuntu](docs/systemd.md) shows how to connect your GitOps repository and
-start Composer as a systemd service. Install Composer on each Docker host you
-want to manage. GitHub Actions is optional; the agent fetches and deploys itself.
-
-Continue with the guide for your next task:
-
-- [Add an app or mount its configuration](docs/apps.md)
-- [Test on a stage branch, then promote to prod](docs/configuration.md#environments)
-- [Connect a private Git repository](docs/configuration.md#remote-git-and-authentication)
-- [Build your app from source](docs/builds.md)
-- [Encrypt and use a secret](docs/secrets.md)
-
-Deployments can briefly interrupt the changed app. Composer tracks successful
-Git deployments; it does not repair manual Docker changes. Check container health
-with `docker ps` and logs with `docker logs CONTAINER`.
-
-For CLI options, run `composer --help` or `composer COMMAND --help`.
-For development, see [Contributing](CONTRIBUTING.md) and [architecture](docs/architecture.md).
+Run `composer --help` for commands. To contribute, see
+[Contributing](CONTRIBUTING.md) and [architecture](docs/architecture.md).

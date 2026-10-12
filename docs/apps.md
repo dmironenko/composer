@@ -119,7 +119,7 @@ Explicit service `networks` or `network_mode` override these automatic attachmen
 Export the built-in template into your GitOps repository:
 
 ```sh
-composer template export compose --output my-gitops/templates/compose.yaml.tmpl
+composer template export compose --output example/templates/compose.yaml.tmpl
 ```
 
 Edit it to change defaults for all apps. This replaces the built-in template;

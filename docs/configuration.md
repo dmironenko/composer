@@ -6,15 +6,15 @@ paths resolve from this YAML file.
 
 ```yaml
 version: 1
-installation: my-stack
+installation: example
 source:
   mode: local
-  path: my-gitops
+  path: example
   branches:
     prod: master
     stage: dev
   poll_interval: 1m
-state_dir: my-gitops-state
+state_dir: example-state
 ```
 
 Create both branches before starting. Local mode reads committed snapshots
@@ -43,20 +43,21 @@ branch, including Dockerfiles and templates. Missing `stage.yaml` disables that
 app in all non-prod environments; an empty file or `{}` enables it.
 
 To add stage to the [README walkthrough](../README.md#try-it-locally), enable the
-app on a new branch and give it a different host port. If you already removed
-the demo app, restore it first with `git -C my-gitops revert --no-edit HEAD`.
+app on a new branch and give it a different host port. From `composer-demo`:
 
 ```sh
-git -C my-gitops switch -c dev
-cat > my-gitops/apps/demo/nginx/vars/stage.yaml <<'YAML'
+cd example
+git switch -c dev
+cat > apps/demo/nginx/vars/stage.yaml <<'YAML'
 compose:
   services:
     nginx:
       ports:
         - 127.0.0.1:18082:80
 YAML
-git -C my-gitops add .
-git -C my-gitops commit -m 'feat: enable nginx on stage'
+git add .
+git commit -m 'feat: enable nginx on stage'
+cd ..
 ```
 
 The generated host YAML initially maps both environments to `master`. Change
@@ -65,12 +66,13 @@ The generated host YAML initially maps both environments to `master`. Change
 [localhost:18081](http://127.0.0.1:18081/); stage is at
 [localhost:18082](http://127.0.0.1:18082/). Both ports must be free before deployment.
 
-In another terminal, edit an app file on `dev` and commit it. For example, change
-`apps/demo/nginx/configs/index.html`. Check the result on stage, then promote it:
+In another terminal, open `composer-demo/example`, edit an app file on `dev`,
+and commit it. For example, change `apps/demo/nginx/configs/index.html`.
+Check the result on stage, then promote it from the same directory:
 
 ```sh
-git -C my-gitops switch master
-git -C my-gitops merge dev
+git switch master
+git merge dev
 ```
 
 Keep shared settings in `base.yaml`; reserve `stage.yaml` for differences such as

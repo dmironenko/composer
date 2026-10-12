@@ -1,20 +1,19 @@
 # Run on Ubuntu
 
 Run Composer on the server that hosts your Docker containers. This guide uses
-`installation: my-stack` and a GitOps repository whose production branch is
+`installation: example` and a GitOps repository whose production branch is
 `master`. Use `main` instead if that is your branch name.
 
 ## 1. Push your deployment files
 
-Create an empty repository on your Git provider. From the machine where you
-created `my-gitops` in the [local walkthrough](../README.md#try-it-locally), add
-its URL and push. If you completed the cleanup step, first restore the demo app
-with `git -C my-gitops revert --no-edit HEAD`, or add your own apps.
+Create an empty repository on your Git provider. From `composer-demo`, created
+in the [local walkthrough](../README.md#try-it-locally), add its URL and push.
 Replace `OWNER` and the repository name:
 
 ```sh
-git -C my-gitops remote add origin git@github.com:OWNER/gitops.git
-git -C my-gitops push -u origin master
+cd example
+git remote add origin git@github.com:OWNER/example.git
+git push -u origin master
 ```
 
 The walkthrough's nginx port binds to localhost; public access needs an ingress
@@ -24,7 +23,12 @@ for nginx and Certbot.
 
 ## 2. Configure the server
 
-On the Ubuntu server, install Docker Engine and [Composer](../README.md#install).
+On the Ubuntu server, install Docker Engine and Composer:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/master/install.sh | sudo sh -s -- v1.0.0 /usr/local/bin
+```
+
 Docker installation, server users, firewall rules, and kernel settings belong to
 host provisioning. Composer manages the applications once Docker is running.
 
@@ -39,14 +43,14 @@ Save this configuration with your repository URL:
 
 ```yaml
 version: 1
-installation: my-stack
+installation: example
 source:
   mode: remote
-  url: https://github.com/OWNER/gitops.git
+  url: https://github.com/OWNER/example.git
   branches:
     prod: master
   poll_interval: 1m
-state_dir: /var/lib/composer/my-stack
+state_dir: /var/lib/composer/example
 docker:
   host: unix:///var/run/docker.sock
 ```
@@ -87,15 +91,15 @@ Install and start the service:
 sudo "$(command -v composer)" install --config /etc/composer/composer.yaml
 ```
 
-This copies the binary, creates `composer-my-stack.service`, and enables it at
+This copies the binary, creates `composer-example.service`, and enables it at
 boot. The service name comes from `installation`. It keeps reading the host config
 at `/etc/composer/composer.yaml` and deploys the repository's current commit.
 
 Follow the first deployment:
 
 ```sh
-sudo systemctl status composer-my-stack
-sudo journalctl -u composer-my-stack -f
+sudo systemctl status composer-example
+sudo journalctl -u composer-example -f
 ```
 
 Each report shows the Git `commits` used and an `action` for each app. `noop` means
@@ -121,15 +125,15 @@ curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/master/install.
 sudo /usr/local/bin/composer install --config /etc/composer/composer.yaml
 ```
 
-This replaces the binary at `/usr/local/lib/composer/my-stack/composer` and its
+This replaces the binary at `/usr/local/lib/composer/example/composer` and its
 unit, then restarts the agent. It refuses to overwrite an unrelated unit.
-Use `sudo systemctl edit composer-my-stack` for service overrides.
+Use `sudo systemctl edit composer-example` for service overrides.
 
 To pause and resume deployments:
 
 ```sh
-sudo systemctl stop composer-my-stack
-sudo systemctl start composer-my-stack
+sudo systemctl stop composer-example
+sudo systemctl start composer-example
 ```
 
 Stopping Composer leaves applications running. Stop the agent before using
@@ -140,7 +144,7 @@ a failed agent after five seconds and starts it after a host reboot.
 To disable automatic deployments:
 
 ```sh
-sudo systemctl disable --now composer-my-stack
+sudo systemctl disable --now composer-example
 ```
 
 To remove the service entirely, also delete its unit and installed binary
