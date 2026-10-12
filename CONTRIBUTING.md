@@ -31,13 +31,14 @@ For installer changes, run `shellcheck install.sh` and
 `python3 -m unittest discover -s test/install -v`. The installer tests use local
 archives and temporary directories; they do not download or replace your CLI.
 
-Maintainers also run the shared Vixar platform linter:
+Maintainers also run the shared Vixar platform linter through the Git submodule:
 
 ```sh
-make go/vendor PLATFORM_DIR=/path/to/platform
-GOTOOLCHAIN=go1.26.9 make go/lint PLATFORM_DIR=/path/to/platform
-GOTOOLCHAIN=go1.26.9 /path/to/platform/bin/golangci-lint run --build-tags=integration ./... \
-  --config /path/to/platform/configs/go/golangci.yml
+git submodule update --init platform
+make go/vendor
+GOTOOLCHAIN=go1.26.9 make go/lint
+GOTOOLCHAIN=go1.26.9 platform/bin/golangci-lint run --build-tags=integration ./... \
+  --config platform/configs/go/golangci.yml
 ```
 
 Use the platform configuration unchanged. Contributors do not need platform
