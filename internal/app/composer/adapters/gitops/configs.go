@@ -125,13 +125,32 @@ func publish(root string, files map[string]artifact) (err error) {
 
 func writeConfigs(root string, files map[string]artifact) error {
 	for name, file := range files {
-		target := filepath.Join(root, filepath.FromSlash(name))
-		if mkdirErr := os.MkdirAll(filepath.Dir(target), configDirMode); mkdirErr != nil {
-			return fmt.Errorf("create config directory: %w", mkdirErr)
+		if err := writeConfig(root, name, file); err != nil {
+			return err
 		}
+	}
 
-		if writeErr := os.WriteFile(target, file.Content, file.Mode); writeErr != nil {
-			return fmt.Errorf("write config: %w", writeErr)
+	return nil
+}
+
+func writeConfig(root, name string, file artifact) error {
+	target := filepath.Join(root, filepath.FromSlash(name))
+	if err := os.MkdirAll(filepath.Dir(target), configDirMode); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
+
+	if err := os.WriteFile(target, file.Content, file.Mode); err != nil {
+		return fmt.Errorf("write config: %w", err)
+	}
+
+	// restore declared modes after creation: systemd may set umask 0077.
+	if err := os.Chmod(target, file.Mode); err != nil {
+		return fmt.Errorf("set config permissions: %w", err)
+	}
+
+	for directory := filepath.Dir(target); directory != root; directory = filepath.Dir(directory) {
+		if err := os.Chmod(directory, configDirMode); err != nil {
+			return fmt.Errorf("set config directory permissions: %w", err)
 		}
 	}
 
