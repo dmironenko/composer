@@ -114,11 +114,11 @@ See [host configuration](configuration.md) for details.
 
 ## Update or stop Composer
 
-Install the new CLI version on the server, then reinstall the agent:
+Install the desired release on the server using the
+[installation commands](../README.md#install), then reinstall the agent:
 
 ```sh
-go install github.com/dmironenko/composer/cmd/composer@latest
-sudo "$(command -v composer)" install --config /etc/composer/composer.yaml
+sudo /usr/local/bin/composer install --config /etc/composer/composer.yaml
 ```
 
 This replaces the binary at `/usr/local/lib/composer/my-stack/composer` and its

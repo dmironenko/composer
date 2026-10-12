@@ -25,22 +25,42 @@ manages the apps.
 
 ## Try it locally
 
-You need Git, [Go 1.26.8 or newer](https://go.dev/dl/), and a running Docker Engine
-or Docker Desktop. Use bash or zsh for the commands below, with `curl` available
+You need Git and a running Docker Engine or Docker Desktop.
+Use bash or zsh for the commands below, with `curl` available
 and Git configured to create commits. The walkthrough works on macOS and Linux
 and uses `127.0.0.1:18081`; choose another port if it is busy.
 
 ### Install
 
-Install the CLI:
+Install a binary from [Releases](https://github.com/dmironenko/composer/releases).
+Set `version` to the release you want and `platform` to match your machine:
+
+| Machine | Platform |
+| --- | --- |
+| Linux, Intel or AMD | `linux_amd64` |
+| Linux, ARM64 | `linux_arm64` |
+| macOS, Intel | `darwin_amd64` |
+| macOS, Apple Silicon | `darwin_arm64` |
 
 ```sh
-go install github.com/dmironenko/composer/cmd/composer@latest
+(
+  set -e
+  version=v1.0.0
+  platform=linux_amd64
+  temp_dir=$(mktemp -d)
+  trap 'rm -rf "$temp_dir"' EXIT
+
+  curl -fSL "https://github.com/dmironenko/composer/releases/download/$version/composer_${version}_${platform}.tar.gz" -o "$temp_dir/composer.tar.gz"
+  tar -xzf "$temp_dir/composer.tar.gz" -C "$temp_dir"
+  sudo install -d /usr/local/bin
+  sudo install -m 755 "$temp_dir/composer" /usr/local/bin/composer
+)
+composer --version
 ```
 
-Go installs the binary in `$HOME/go/bin` by default. If `composer` is not found,
-add `export PATH="$HOME/go/bin:$PATH"` to your shell profile and open a new terminal.
-The Docker Compose CLI is not required.
+Go and the Docker Compose CLI are not required. Repeat the commands with another
+`version` to update. If you previously installed with `go install`, remove the old
+binary from `$HOME/go/bin` or put `/usr/local/bin` before it in your `PATH`.
 
 ### 1. Create a deployment repository
 
