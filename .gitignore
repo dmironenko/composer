@@ -4,6 +4,7 @@
 coverage.out
 .DS_Store
 /vendor/
+__pycache__/
 *.agekey
 *.pem
 *.key

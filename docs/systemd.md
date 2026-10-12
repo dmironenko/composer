@@ -114,10 +114,10 @@ See [host configuration](configuration.md) for details.
 
 ## Update or stop Composer
 
-Install the desired release on the server using the
-[installation commands](../README.md#install), then reinstall the agent:
+Install the desired release, then reinstall the agent:
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/master/install.sh | sudo sh -s -- v1.0.0 /usr/local/bin
 sudo /usr/local/bin/composer install --config /etc/composer/composer.yaml
 ```
 

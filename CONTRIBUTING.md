@@ -27,6 +27,10 @@ Test behavior changes and commit regenerated mocks with interface changes.
 Write documentation and comments in English. For documentation-only changes,
 check the commands and links; new tests are not needed.
 
+For installer changes, run `shellcheck install.sh` and
+`python3 -m unittest discover -s test/install -v`. The installer tests use local
+archives and temporary directories; they do not download or replace your CLI.
+
 Maintainers also run the shared Vixar platform linter:
 
 ```sh

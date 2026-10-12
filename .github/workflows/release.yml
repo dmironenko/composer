@@ -26,6 +26,7 @@ jobs:
 
       - name: test
         run: |
+          python3 -m unittest discover -s test/install -v
           go test -race -shuffle=on ./...
           go vet ./...
 

@@ -32,35 +32,34 @@ and uses `127.0.0.1:18081`; choose another port if it is busy.
 
 ### Install
 
-Install a binary from [Releases](https://github.com/dmironenko/composer/releases).
-Set `version` to the release you want and `platform` to match your machine:
-
-| Machine | Platform |
-| --- | --- |
-| Linux, Intel or AMD | `linux_amd64` |
-| Linux, ARM64 | `linux_arm64` |
-| macOS, Intel | `darwin_amd64` |
-| macOS, Apple Silicon | `darwin_arm64` |
+Install a specific release:
 
 ```sh
-(
-  set -e
-  version=v1.0.0
-  platform=linux_amd64
-  temp_dir=$(mktemp -d)
-  trap 'rm -rf "$temp_dir"' EXIT
-
-  curl -fSL "https://github.com/dmironenko/composer/releases/download/$version/composer_${version}_${platform}.tar.gz" -o "$temp_dir/composer.tar.gz"
-  tar -xzf "$temp_dir/composer.tar.gz" -C "$temp_dir"
-  sudo install -d /usr/local/bin
-  sudo install -m 755 "$temp_dir/composer" /usr/local/bin/composer
-)
-composer --version
+curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/master/install.sh | sh -s -- v1.0.0
 ```
 
-Go and the Docker Compose CLI are not required. Repeat the commands with another
-`version` to update. If you previously installed with `go install`, remove the old
-binary from `$HOME/go/bin` or put `/usr/local/bin` before it in your `PATH`.
+The script detects Linux or macOS and amd64 or arm64, verifies the release's
+SHA256 checksum, and installs to `~/.local/bin` without sudo. Go and the Docker
+Compose CLI are not required. Repeat with another release tag to update.
+
+If `~/.local/bin` is not on your PATH, add this to your bash or zsh profile:
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+For fish, use `fish_add_path ~/.local/bin`. Open a new terminal and run
+`composer --version`. If an older installation takes precedence, check
+`command -v composer` and remove the old binary or adjust your PATH.
+
+For a system-wide installation, pass the directory explicitly:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/master/install.sh | sudo sh -s -- v1.0.0 /usr/local/bin
+```
+
+You can [read the script](install.sh) first or download an archive from
+[Releases](https://github.com/dmironenko/composer/releases).
 
 ### 1. Create a deployment repository
 
