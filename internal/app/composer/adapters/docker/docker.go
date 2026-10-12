@@ -97,7 +97,10 @@ func (c *Client) Up(ctx context.Context, deployment domain.Project, waitTimeout 
 		return err
 	}
 
-	sdk, err := compose.NewComposeService(c.cli, compose.WithStreams(io.Discard, io.Discard, nil))
+	// compose mutates shared network settings when creating replicas.
+	// serialize sdk operations within this app; other apps still deploy concurrently.
+	sdk, err := compose.NewComposeService(c.cli,
+		compose.WithStreams(io.Discard, io.Discard, nil), compose.WithMaxConcurrency(1))
 	if err != nil {
 		return fmt.Errorf("create compose client: %w", err)
 	}
