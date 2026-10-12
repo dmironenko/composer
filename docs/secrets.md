@@ -1,8 +1,9 @@
 # Secrets
 
 Keep secret names in YAML and encrypt each value with age. Composer decrypts
-values before merging `base.yaml` and `stage.yaml`, then exposes them as
-`.Secrets` in templates.
+values anywhere in vars before merging `base.yaml` and environment overrides.
+Keep application secrets under `app` alongside ordinary settings; templates use
+`.Vars.app` for both.
 
 ## Create a key once
 
@@ -36,33 +37,31 @@ printf '%s' 'some-token' | composer secrets encrypt --key-file "$HOME/.config/co
 ```
 
 Copy the returned `ENC[...]` string into the application's `vars/base.yaml`.
-Encrypt each password or token separately and keep `secrets` at the end:
+Encrypt each password or token separately:
 
 ```yaml
 app:
   database:
     host: db
+    user: postgres
+    password: ENC[...]
+  stage_token: ENC[...]
 
 compose:
   services:
     api:
       image: your-app:version
-
-secrets:
-  stage_token: ENC[...]
-  database:
-    password: ENC[...]
 ```
 
 For real secrets, redirect a protected file with `< /path/to/secret` to avoid
 putting the value in shell history. Encryption preserves the exact input,
 including spaces and newlines; `printf '%s'` adds no trailing newline.
 
-Templates can read `.Secrets.stage_token` and `.Secrets.database.password`.
-To combine application settings and secrets in a YAML config:
+Templates read `.Vars.app.database.user` and `.Vars.app.database.password`
+in the same way. To render the whole application config:
 
 ```gotemplate
-{{ merge .Vars.app .Secrets | toYAML }}
+{{ .Vars.app | toYAML }}
 ```
 
 Commit and push to deploy. A change to a secret used by the project recreates its
@@ -93,5 +92,8 @@ when executable. Mount configs read-only with `:ro` and protect state backups.
 Old config versions remain until project removal. Docker users can also inspect
 secrets passed through container environment variables.
 
-Legacy `age:...` values, including encrypted whole YAML blocks, remain readable
-for old commits. SOPS files are not supported.
+The old top-level `secrets` mapping and `.Secrets` template variable remain
+readable for rollbacks, as do legacy `age:...` values and encrypted whole
+`secrets` blocks. For new configs, move each value into `app` and update its
+template reference to `.Vars.app`. Upgrade Composer before deploying these
+configs; v1.0.0 only decrypts the old `secrets` section. SOPS files are not supported.

@@ -296,6 +296,23 @@ func TestSecretChanges(t *testing.T) {
 	}
 }
 
+func TestLegacySecretsRender(t *testing.T) {
+	t.Parallel()
+	root, cfg := encryptedFixture(t, "prod")
+	before := loadOne(t, cfg, root)
+	check(t, before.Error == "", before.Error)
+
+	path := "apps/demo/service/vars/base.yaml"
+	data, err := os.ReadFile(filepath.Join(root, path))
+	check(t, err == nil, err)
+	write(t, root, path, strings.Replace(string(data), "app:", "secrets:", 1))
+	write(t, root, "apps/demo/service/configs/config.yaml.tmpl", "{{ .Secrets | toYAML }}")
+
+	after := loadOne(t, cfg, root)
+	check(t, after.Error == "", after.Error)
+	check(t, before.Hash == after.Hash, "legacy secrets changed the rendered config")
+}
+
 func check(t *testing.T, condition bool, message ...any) {
 	t.Helper()
 
@@ -315,7 +332,7 @@ func encryptedFixture(t *testing.T, environment string) (string, gitops.Options)
 	folder := "apps/demo/service/"
 	err = os.RemoveAll(filepath.Join(root, folder, "configs"))
 	check(t, err == nil, err)
-	write(t, root, folder+"configs/config.yaml.tmpl", "{{ merge .Vars.app .Secrets | toYAML }}")
+	write(t, root, folder+"configs/config.yaml.tmpl", "{{ .Vars.app | toYAML }}")
 	copyEncrypted(t, root, "base.yaml", "base.yaml")
 
 	return root, cfg
@@ -424,7 +441,7 @@ func testEncryptedAppConfig(t *testing.T, tc encryptedCase) {
 		`{{ toYAML $service | indent 4 }}`,
 		`{{ toYAML $service | indent 4 }}
     environment:
-      PASSWORD: {{ quote $.Secrets.database.password }}`, 1))
+      PASSWORD: {{ quote $.Vars.app.database.password }}`, 1))
 
 	if tc.override != "" {
 		copyEncrypted(t, root, tc.override, tc.environment+".yaml")

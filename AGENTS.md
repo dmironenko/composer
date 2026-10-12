@@ -20,8 +20,8 @@ make focused changes, and use existing tests. Add abstractions only for real nee
   Keep a call and its error check together. Apply this to code, scripts, and templates.
 - Use two-space YAML indentation. Quote values only to preserve type or meaning.
   Keep `command` and `healthcheck.test` on one line; shell commands use `sh -c`.
-  Leave a blank line before `compose` and `secrets`. Put `secrets` last as a mapping
-  of individually encrypted `ENC[<base64>]` values.
+  Leave a blank line before `compose`. Keep application secrets under `app`
+  alongside ordinary settings, as individually encrypted `ENC[<base64>]` values.
 - `prod` reads base; all other environments read base + stage. Keep shared settings
   in `base.yaml`. Missing `stage.yaml` disables non-prod; an empty file enables it.
 - `source.branches` is the only environment list. Names are configurable; only
@@ -39,9 +39,9 @@ make focused changes, and use existing tests. Add abstractions only for real nee
 - Config-only updates must apply. Scaling must preserve existing replicas.
 - `app` holds only application config values. The built-in Compose template must
   not read it. Put Docker settings in `compose` and Composer network helpers in
-  `compose.x-composer`; keep `build`, `enabled`, and `secrets` at the top level.
-- Decrypt secrets with age before merging vars. Keep `age_key_file` outside Git
-  and plaintext out of reports. Use only Go templates; disable Compose interpolation
+  `compose.x-composer`; keep `build` and `enabled` at the top level.
+- Decrypt `ENC[...]` values anywhere in vars with age before merging vars.
+  Keep `age_key_file` outside Git and plaintext out of reports. Use only Go templates; disable Compose interpolation
   so `$` in secrets survives.
 - A failed apply must not leave a success hash that hides a later Git revert.
 - Do not automatically delete volumes/images. Treat the GitOps repository as trusted.

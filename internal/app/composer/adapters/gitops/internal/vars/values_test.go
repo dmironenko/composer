@@ -36,9 +36,11 @@ func checkEncryptedValue(t *testing.T, plaintext string) {
 	encoded := strconv.Quote(string(ciphertext))
 	legacy := "age:" + strings.TrimSuffix(strings.TrimPrefix(string(ciphertext), "ENC["), "]")
 
-	document := "app: {literal: 'ENC[not-encrypted]'}\nsecrets:\n  token: " + encoded +
+	document := "plain: readable\napp:\n  token: " + encoded +
 		"\n  legacy: " + legacy + "\n  database:\n    password: " + encoded + "\n  list: [" + encoded +
 		", {nested: " + encoded + "}]\n  plain: readable\n  flag: false\n  absent: null\n"
+	document += "compose: {services: {api: {environment: {PASSWORD: " + encoded + "}}}}\n" +
+		"token: " + encoded + "\nsecrets: {password: " + encoded + "}\n"
 	files := fstest.MapFS{"base.yaml": {Data: []byte(document)}}
 
 	actual, _, err := vars.Read(files, "base.yaml", keyFile)
@@ -54,8 +56,13 @@ func checkEncryptedValue(t *testing.T, plaintext string) {
 
 func decryptedValues(plaintext string) map[string]any {
 	return map[string]any{
-		"app": map[string]any{"literal": "ENC[not-encrypted]"},
-		"secrets": map[string]any{
+		"plain":   "readable",
+		"token":   plaintext,
+		"secrets": map[string]any{"password": plaintext},
+		"compose": map[string]any{"services": map[string]any{
+			"api": map[string]any{"environment": map[string]any{"PASSWORD": plaintext}},
+		}},
+		"app": map[string]any{
 			"token": plaintext, "legacy": plaintext, "database": map[string]any{"password": plaintext},
 			"list":  []any{plaintext, map[string]any{"nested": plaintext}},
 			"plain": "readable", "flag": false, "absent": nil,
@@ -86,10 +93,10 @@ func TestReadNestedDecryptionFailure(t *testing.T) {
 	t.Parallel()
 
 	for _, document := range []string{
-		"secrets: {database: {password: 'age:invalid'}}",
-		"secrets: {database: {password: 'ENC[invalid]'}}",
-		"secrets: {tokens: ['ENC[invalid']}",
-		"secrets: {tokens: ['age:invalid']}",
+		"app: {database: {password: 'age:invalid'}}",
+		"app: {database: {password: 'ENC[invalid]'}}",
+		"app: {tokens: ['ENC[invalid']}",
+		"app: {tokens: ['age:invalid']}",
 	} {
 		files := fstest.MapFS{"base.yaml": {Data: []byte(document)}}
 

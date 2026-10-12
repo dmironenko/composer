@@ -87,8 +87,8 @@ app:
 ```
 
 Config changes recreate the affected app's containers even if its image stays
-the same. See [secrets](secrets.md) for `.Secrets` and [source builds](builds.md)
-for `Dockerfile.tmpl`.
+the same. See [secrets](secrets.md) for encrypted values in `.Vars.app` and
+[source builds](builds.md) for `Dockerfile.tmpl`.
 
 ## Connect networks
 
@@ -150,7 +150,7 @@ Edit it to change defaults for all apps. This replaces the built-in template;
 you maintain the copied version. App-level `compose` values override defaults
 when merged by the template.
 
-Templates receive `.Vars`, `.Secrets`, `.Installation`, `.Env`, `.Environments`,
+Templates receive `.Vars`, `.Installation`, `.Env`, `.Environments`,
 `.Namespace`, `.App`, and `.Runtime` (`ProjectName`, `NetworkName`, `Image`).
 Helpers: `toYAML`, `toJSON`, `quote`, `indent`, `get`, `default`, `dict`, `list`,
 `merge`, and `network`. Template expressions inside vars are not evaluated again.

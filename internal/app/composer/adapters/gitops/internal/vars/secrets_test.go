@@ -55,17 +55,13 @@ func TestReadSecrets(t *testing.T) {
 			}
 
 			expected := decode(t, `
-database: {host: db}
+database: {host: db, password: base-test-secret}
 logging: {level: info}
 retries: 3
 debug: false
 `)
 			if !reflect.DeepEqual(actual["app"], expected) {
 				t.Fatal("decryption changed app values or YAML types")
-			}
-
-			if !reflect.DeepEqual(actual["secrets"], decode(t, "database: {password: base-test-secret}")) {
-				t.Fatal("secret was not decrypted")
 			}
 
 			original, err := os.ReadFile(filepath.Join(root, "base.yaml"))
@@ -88,7 +84,7 @@ func TestReadFailuresDoNotExposeSecrets(t *testing.T) {
 		{name: "empty identity", key: "# no identities\n", expectedErr: vars.ErrEncrypted},
 		{
 			name:        "invalid encrypted value",
-			document:    "secrets: age:private-value-marker\n",
+			document:    "app: {password: 'ENC[private-value-marker]'}\n",
 			expectedErr: vars.ErrEncrypted,
 		},
 		{name: "malformed yaml", document: "app: [private-value-marker", expectedErr: vars.ErrInvalid},

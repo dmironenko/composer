@@ -89,7 +89,7 @@ func TestSecretRollout(t *testing.T) {
 		t.Fatal(checkErr)
 	}
 
-	writeFile(t, filepath.Join(folder, "configs/config.yaml.tmpl"), "{{ merge .Vars.app .Secrets | toYAML }}")
+	writeFile(t, filepath.Join(folder, "configs/config.yaml.tmpl"), "{{ .Vars.app | toYAML }}")
 
 	copyEncrypted := func(source, target string) {
 		t.Helper()

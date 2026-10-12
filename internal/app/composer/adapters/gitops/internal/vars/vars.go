@@ -140,13 +140,30 @@ func stringMapKeys(values map[string]any) bool {
 }
 
 func decryptValues(values map[string]any, keyFile string) error {
+	for key, value := range values {
+		if key == "secrets" {
+			continue
+		}
+
+		decrypted, err := decryptTree(value, keyFile)
+		if err != nil {
+			return err
+		}
+
+		values[key] = decrypted
+	}
+
+	return decryptLegacySecrets(values, keyFile)
+}
+
+func decryptLegacySecrets(values map[string]any, keyFile string) error {
 	switch value := values["secrets"].(type) {
 	case nil:
 		return nil
 	case map[string]any:
 		return decryptMap(value, keyFile)
 	case string:
-		// Read the earlier whole-block format so existing commits can still be reverted.
+		// read the earlier whole-block format so existing commits can still be reverted.
 		plaintext, err := Decrypt([]byte(value), keyFile)
 		if err != nil {
 			return err
@@ -165,7 +182,7 @@ func decryptValues(values map[string]any, keyFile string) error {
 	}
 }
 
-// decryptTree visits only secrets; decrypted strings are never parsed or visited again.
+// decryptTree walks vars; decrypted strings are never parsed or visited again.
 func decryptTree(value any, keyFile string) (any, error) {
 	switch value := value.(type) {
 	case map[string]any:

@@ -1,6 +1,7 @@
 app:
   database:
     host: db
+    password: ENC[YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBoczIxZmRaKy9IYVdtK0h1Um8wZmlQem4ybEVHbncrQXpxM1RhWWNPaEZ3CnFqakhTYnMwcHNsOVplSUQxVU4rL3Jya1hEbm5ReTFqcm5ka0U4NkgzSjQKLS0tIE9jL3hKMU9NeFRFTUlJdUprU0hJRndvWTAzTjFFUng0MnIySkp5dEwzUmsKF0ak7hlDH4yG5q7BfahSQ989x6cAXpFTPfzvHPFfAHWN1FoGVrdIT3jM9srkdjdC]
   logging:
     level: info
   retries: 3
@@ -28,7 +29,3 @@ compose:
         interval: 1s
         timeout: 1s
         retries: 10
-
-secrets:
-  database:
-    password: ENC[YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBoczIxZmRaKy9IYVdtK0h1Um8wZmlQem4ybEVHbncrQXpxM1RhWWNPaEZ3CnFqakhTYnMwcHNsOVplSUQxVU4rL3Jya1hEbm5ReTFqcm5ka0U4NkgzSjQKLS0tIE9jL3hKMU9NeFRFTUlJdUprU0hJRndvWTAzTjFFUng0MnIySkp5dEwzUmsKF0ak7hlDH4yG5q7BfahSQ989x6cAXpFTPfzvHPFfAHWN1FoGVrdIT3jM9srkdjdC]
