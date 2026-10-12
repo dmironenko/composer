@@ -67,7 +67,7 @@ type reconcileConfig struct {
 // defaultConfig returns the shared host defaults used by loading and scaffolding.
 func defaultConfig() hostConfig {
 	const (
-		pollInterval  = 10 * time.Second
+		pollInterval  = time.Minute
 		parallelism   = 4
 		gitTimeout    = 30 * time.Second
 		deployTimeout = 5 * time.Minute

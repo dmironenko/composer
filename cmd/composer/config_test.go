@@ -107,7 +107,7 @@ func checkLoadedConfig(t *testing.T, dir string, actual hostConfig) {
 		t.Fatal("age key path was not resolved against config directory")
 	}
 
-	if actual.Source.PollInterval != 10*time.Second || actual.Reconcile.Parallelism != 4 {
+	if actual.Source.PollInterval != time.Minute || actual.Reconcile.Parallelism != 4 {
 		t.Fatalf("unexpected defaults: %+v", actual.Reconcile)
 	}
 }
