@@ -1,0 +1,57 @@
+name: release
+
+on:
+  push:
+    tags:
+      - v*
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-26.04
+    env:
+      VERSION: ${{ github.ref_name }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: 1.26.x
+          check-latest: true
+
+      - name: test
+        run: |
+          go test -race -shuffle=on ./...
+          go vet ./...
+
+      - name: check vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+
+      - name: build archives
+        env:
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p "$RUNNER_TEMP/release"
+
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            export GOOS="${target%/*}" GOARCH="${target#*/}"
+            package="$RUNNER_TEMP/composer_${VERSION}_${GOOS}_${GOARCH}"
+            mkdir -p "$package"
+
+            go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "$package/composer" ./cmd/composer
+            cp LICENSE README.md "$package/"
+            tar -czf "$RUNNER_TEMP/release/composer_${VERSION}_${GOOS}_${GOARCH}.tar.gz" -C "$package" composer LICENSE README.md
+          done
+
+          cd "$RUNNER_TEMP/release"
+          sha256sum ./*.tar.gz > checksums.txt
+
+      - name: publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$VERSION" "$RUNNER_TEMP"/release/* --verify-tag --title "$VERSION" --generate-notes
