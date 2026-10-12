@@ -1,77 +1,13 @@
-# Архитектура Composer
+# Architecture
 
-Composer читает снимки Git, подставляет vars в шаблоны, создаёт сети и применяет
-изменения через Compose SDK. Типы приложений и маршрутизация описываются в
-GitOps-репозитории.
+This guide is for contributors. For host settings and everyday commands, see
+[configuration](configuration.md) and the [README](../README.md).
 
-## Репозиторий и окружения
+Composer reads Git snapshots, renders templates, prepares networks, and applies
+changed projects through the Compose SDK. Application types and routing belong
+to the GitOps repository.
 
-Каждый каталог `apps/<namespace>/<app>` задаёт независимый Compose project.
-Для каждой пары namespace/environment Composer создаёт bridge-сеть до запуска
-параллельных выкаток. Функция `network "stage" "demo"` возвращает имя сети и
-добавляет её в список создаваемых. Остальные external networks нужно создать заранее.
-
-Окружения задаются в `source.branches`. Каждое читает свою ветку целиком.
-Prod использует `base.yaml`, остальные окружения добавляют `stage.yaml`.
-Отсутствующий `stage.yaml` выключает приложение вне prod; пустой включает.
-`enabled: false` выключает проект. Словари объединяются рекурсивно, списки и скаляры
-заменяются, `null` удаляет ключ.
-
-`run` перечитывает host YAML перед каждым проходом. Ошибка конфига сохраняет
-последние принятые настройки. Изменения `installation`, `state_dir`, `docker`
-требуют перезапуска агента. Имена окружений начинаются со строчной
-латинской буквы и содержат строчные латинские буквы, цифры и дефисы, до 63 символов.
-
-## Применение изменений
-
-1. Получить снимок коммита каждой ветки через go-git.
-2. Расшифровать vars, применить overrides и отрендерить конфиги, Dockerfile и Compose.
-3. Сравнить хэш модели с последним успешным применением.
-4. Создать сети.
-5. В пределах `parallelism` собрать недостающие образы и вызвать Compose Up или Down.
-6. После успешного применения сохранить хэш.
-
-`run` получает новые снимки каждый проход. `apply --wait` удерживает первый успешно
-полученный снимок каждого окружения и повторяет попытки до успеха или таймаута.
-Ошибка чтения или рендеринга сохраняет текущее окружение и не блокирует остальные.
-Ошибка сети блокирует только её потребителей. Блокировка процесса не допускает
-одновременную работу агентов с одним `state_dir`.
-
-Сборка образа завершается до Up; её ошибка сохраняет прежние контейнеры и хэш.
-Перед Up/Down прежний хэш удаляется, чтобы частичная ошибка не скрыла последующий
-Git revert. Маркер `attempted` сохраняет проект в inventory даже при неудачном Up.
-Удаления обрабатываются и после перезапуска агента. Тома, образы и сети namespace
-сохраняются.
-
-Compose SDK управляет контейнерами, масштабированием и ожиданием готовности.
-Одна попытка ожидания ограничена `max(1s, poll_interval)`. На всю операцию с checkout
-и сборкой отводится `deploy_timeout`. Между повторными попытками могут стартовать
-другие проекты даже при `parallelism: 1`. Порядка запуска между проектами нет.
-
-Composer пропускает успешно применённые проекты без изменений и не исправляет
-ручные изменения в Docker. Для повторного применения остановите агент и удалите
-`state_dir/deployments/<env>/<project>/applied`. При потере каталога состояния
-теряется и учёт проектов, уже удалённых из Git. Отчёты выводятся как JSON lines,
-ошибки идут в stderr.
-
-## Шаблоны и конфиги
-
-Шаблоны получают `.Vars`, `.Secrets`, `.Installation`, `.Env`, `.Environments`,
-`.Namespace`, `.App` и `.Runtime` (`ProjectName`, `NetworkName`, `Image`). Helpers:
-`toYAML`, `toJSON`, `quote`, `indent`, `get`, `default`, `dict`, `list`, `merge`, `network`.
-Файлы без `.tmpl` копируются без изменений. Compose interpolation отключён:
-подстановки выполняют Go templates, `$` в значениях сохраняется буквально.
-
-Готовые конфиги сохраняются в каталог по хэшу содержимого и признака исполняемости.
-Bind path и label `io.composer.config` меняются вместе с конфигом, поэтому Compose
-пересоздаёт контейнеры даже при прежнем образе. Изменение `deploy.replicas` сохраняет
-config path/label и не пересоздаёт прежние реплики.
-
-[Секреты](secrets.md) расшифровываются до merge. Повторное шифрование прежних
-значений не меняет модель. [Сборка из исходников](builds.md) использует кэш Docker;
-конфиги влияют на образ только через переменные, использованные в Dockerfile.
-
-## Код
+## Package boundaries
 
 ```text
 cmd/composer/                 composition root, host YAML, bootstrap, lifecycle
@@ -79,55 +15,89 @@ internal/app/composer/
   domain/                     Project, Manifest, Change, Snapshot, Report, BuildSpec
   service/
     reconcile/                snapshot → render → plan → apply, polling/retry
-    deployment/               сравнение ревизий, удаления, network barrier, workers
-    build/                    image lookup → Dockerfile build, singleflight
-  ports/
-    cli/                      Cobra, flags, JSON DTO и ошибки для пользователя
+    deployment/               revision comparison, removal, networks, workers
+    build/                    image lookup and build, concurrent build deduplication
+  ports/cli/                  Cobra commands, flags, JSON reports
   adapters/
-    git/                      GitOps snapshots, SSH/HTTPS
-    gitops/                   vars/secrets/templates, configs, Compose validation
-      internal/vars/          приватный YAML merge и age
-    docker/                   Compose lifecycle, Engine и embedded BuildKit
-    state/                    inventory, applied/attempted markers, build workspace
-    systemd/                  установка unit/binary и вызовы systemctl
+    git/                      GitOps snapshots, SSH/HTTPS authentication
+    gitops/                   vars, secrets, templates, Compose validation
+      internal/vars/          YAML merge and age encryption
+    docker/                   Compose lifecycle, Engine, embedded BuildKit
+    state/                    deployment inventory and markers
+    systemd/                  binary/unit installation, systemctl
 ```
 
-| Слой | Может зависеть от | Не может зависеть от |
+| Layer | Allowed dependencies | Excluded dependencies |
 |---|---|---|
-| `domain` | Чистые средства стандартной библиотеки | Service, ports, adapters, SDK, YAML, файловый/сетевой ввод-вывод |
-| `service` | Domain, другие use cases, context/time, errgroup/singleflight | Ports, adapters, SDK, Cobra, host config, файловая система |
-| `ports/cli` | Domain/service-контракты, Cobra, presentation DTO | Конкретные адаптеры, host YAML loader, Docker/Git SDK |
-| `adapters/<dependency>` | Domain/service-контракты, свой SDK, своё поддерево | Другие адаптеры, inbound ports |
-| `cmd/composer` | Все слои | Бизнес-правила сравнения ревизий и выкатки |
+| `domain` | Pure standard-library code | Services, ports, adapters, SDKs, YAML, I/O |
+| `service` | Domain, other use cases, context/time, errgroup/singleflight | Ports, adapters, SDKs, Cobra, host config, filesystem |
+| `ports/cli` | Domain and service contracts, Cobra, presentation DTOs | Concrete adapters, host YAML loader, Docker/Git SDKs |
+| `adapters/<dependency>` | Domain and service contracts, its SDK and own subpackages | Sibling adapters, inbound ports |
+| `cmd/composer` | All layers | Deployment and revision-comparison policy |
 
-```mermaid
-flowchart TD
-    CMD[cmd/composer: composition root] --> CLI[ports/cli]
-    CMD --> APP[service]
-    CMD --> ADAPTERS[adapters]
-    CLI --> APP
-    ADAPTERS --> APP
-    APP --> DOMAIN[domain]
-    ADAPTERS --> DOMAIN
-    CLI --> DOMAIN
-```
+Services declare outgoing interfaces in `service/*/ports.go`. Adapters implement
+those interfaces; `cmd/composer` constructs and connects them. The composition
+root owns host YAML, the process lock, and Docker client cleanup. Services own
+polling, retries, and operation order; `adapters/state` performs state-file I/O.
 
-Стрелки показывают импорты. Service вызывает адаптеры через интерфейсы,
-объявленные у потребителя в `service/*/ports.go`:
+Compose SDK models stay inside the GitOps and Docker adapters. They exchange
+`domain.Manifest`, which carries the rendered document, working directory, and
+config hash. Domain and service code do not parse Compose fields. The CLI maps
+`domain.Report` to JSON without manifests or secrets.
 
-- `reconcile`: Source, Renderer, Deployer, Inventory.
-- `deployment`: Inventory, Journal, Backend, Builder.
-- `build`: Backend.
+`make go/architecture` checks these boundaries; `make go/lint` includes that
+check. See [CONTRIBUTING.md](../CONTRIBUTING.md) for checks and mock generation.
 
-`cmd/composer` создаёт адаптеры, передаёт им настройки и связывает зависимости.
-Он владеет host YAML, process lock и закрытием Docker client. Решения о polling,
-retry и порядке операций принадлежат service; файловый IO выполняет `adapters/state`.
+## Reconciliation
 
-Compose SDK model остаётся внутри GitOps/Docker adapters. Между ними передаётся
-`domain.Manifest` с rendered document, WorkingDir и ConfigHash. Domain и service
-не разбирают Compose schema. CLI преобразует domain.Report в JSON DTO без
-manifest и секретов.
+Each `apps/<namespace>/<app>` directory becomes an independent Compose project.
+A reconciliation pass:
 
-`make go/architecture` проверяет границы через Vixar platform; `make go/lint`
-включает эту проверку. Команды проверок и генерации mocks описаны в
-[CONTRIBUTING.md](../CONTRIBUTING.md).
+1. Reads a committed snapshot of each configured branch through go-git.
+2. Decrypts vars, merges overrides, and renders configs, Dockerfiles, and Compose.
+3. Compares the project hash with its last successful deployment.
+4. Creates namespace/environment networks and networks requested by templates.
+5. Builds missing images and calls Compose Up or Down within `parallelism`.
+6. Records each successful deployment's hash.
+
+All managed networks are prepared before parallel project operations. A network
+failure blocks only projects that use it. Other external networks must already
+exist. There is no startup order between projects; Compose manages service
+readiness and scaling within each project.
+
+A source or render failure preserves that environment and allows others to
+proceed. `run` fetches fresh snapshots each pass. `apply --wait` retains the first
+successfully read snapshot of each environment and retries until success or its
+overall timeout. A process lock prevents concurrent agents sharing `state_dir`.
+
+Each project operation, including its build, is bounded by `deploy_timeout`.
+A Compose readiness attempt lasts at most `max(1s, poll_interval)`; retries
+release workers so other projects can proceed even with `parallelism: 1`.
+
+## Deployment state
+
+Builds finish before changing containers or invalidating the previous success
+marker. Before Up or Down, Composer removes the `applied` marker so a partially
+failed operation cannot hide a later Git revert. An `attempted` marker records
+possible resource creation even if Up fails. Inventory survives agent restarts,
+including pending removals. Removal retains volumes, images, and namespace
+networks.
+
+Unchanged, successfully applied projects are skipped. Composer does not repair
+manual Docker changes. To force another deployment, stop the agent and remove
+`state_dir/deployments/<env>/<project>/applied`. Losing the state directory also
+loses the inventory of projects already removed from Git. Reports use JSON
+lines; errors go to stderr.
+
+## Rendered configs
+
+Template inputs and helpers are documented in the [app guide](apps.md).
+
+Rendered configs live in directories named by content and executable-bit hash.
+Changing a config changes its bind path and `io.composer.config` label, causing
+container recreation even with the same image. Changing only `deploy.replicas`
+keeps those values and preserves existing replicas.
+
+[Secrets](secrets.md) are decrypted before merging, so encrypting unchanged
+values again does not change the model. [Builds](builds.md) reuse Docker's cache;
+config variables affect the image only when they change the rendered Dockerfile.

@@ -1,14 +1,17 @@
-# Сборка приложений из Git
+# Build applications from Git
 
-Версия приложения задаётся в GitOps-репозитории. Его `Dockerfile.tmpl` получает
-исходники и компилирует приложение; Composer запускает сборку через Docker.
-Образы и кэш сборки хранит Docker; автоматического удаления нет.
+Set the application version in the GitOps repository. Its `Dockerfile.tmpl`
+clones the source and builds the application. Composer runs the build through
+Docker, which stores the images and build cache.
 
-## Файлы приложения
+## Add a build
 
-В `vars/base.yaml`:
+In `apps/<namespace>/<app>/vars/base.yaml`:
 
 ```yaml
+app:
+  listen: :8080
+
 build:
   repository: https://github.com/example/api.git
   tag: v1.0.0
@@ -20,14 +23,15 @@ compose:
       volumes: [./configs/config.yaml:/etc/app/config.yaml:ro]
       deploy:
         replicas: 2
-app:
-  listen: :8080
 ```
 
-Замените URL и tag своими. `build.tag` принимает SHA, тег или ветку;
-Git разрешает указанную ссылку внутри Dockerfile. `build.repository` поддерживает HTTPS и SSH, включая `git@host:org/repo.git`.
+Replace the repository and tag with your own. `build.tag` accepts a commit SHA,
+tag, or branch. The Dockerfile resolves it through Git. Repository URLs can use
+HTTPS or SSH, including `git@host:org/repo.git`; private-source authentication
+has the limits described below.
 
-Пример `Dockerfile.tmpl` для Go-приложения с main package в корне исходников:
+Create `Dockerfile.tmpl` alongside `vars`. This example expects a Go main package
+at the root of the source repository:
 
 ```dockerfile
 FROM golang:1.26-alpine AS builder
@@ -42,81 +46,68 @@ LABEL org.opencontainers.image.revision={{ quote .Vars.build.tag }}
 COPY --from=builder /out/api /app/api
 ```
 
-`configs/config.yaml.tmpl` может целиком копировать настройки:
+Create `configs/config.yaml.tmpl` to write the application settings as YAML:
 
 ```gotemplate
 {{ .Vars.app | toYAML }}
 ```
 
-Dockerfile получает Go template vars, включая `.Vars.build.repository` и
-`.Vars.build.tag`. Оба значения подставляются при рендеринге Dockerfile.
-Composer не передаёт build args.
+Composer renders `.Vars.build.repository` and `.Vars.build.tag` before building.
+It passes no build arguments and uses an empty build context. Download source
+inside the Dockerfile; `COPY . .` cannot read GitOps or host files.
 
-Build context пустой. Исходники загружает сам Dockerfile; локальный `COPY . .`
-не передаёт файлы из GitOps или с сервера. Для multi-stage сборки используйте
-`COPY --from=builder`.
+## Update and roll back
 
-## Образы, обновление и откат
+Change `build.tag` or the Dockerfile and commit. With `prod: master` and
+`stage: dev`, test the change on `dev`, then merge into `master`. Identical build
+inputs use the same local image in both environments.
 
-Тег `composer/build:<sha256>` зависит от repository, tag и отрендеренного
-Dockerfile. Если образ уже есть в Docker, Composer использует его без checkout
-и сборки. Иначе выполняет Dockerfile.
-Одновременные сборки одного тега объединяются.
+The image name is `composer/build:<sha256>`, derived from the repository, tag,
+and rendered Dockerfile. Composer reuses an existing image and combines
+concurrent requests for the same build. Docker retains images and build cache
+until you remove them.
 
-Composer отслеживает GitOps-репозиторий, а не перемещения refs исходного приложения.
-Смена `build.tag` с `v1.0.0` на `v1.1.0` вызывает сборку. Перемещение прежнего тега
-или ветки не вызывает обновление и не сбрасывает кэш Docker. Для воспроизводимых
-выкаток используйте SHA или теги, которые не перемещаются.
+Composer watches the GitOps repository. Moving a source branch or tag without
+changing the GitOps files does not trigger a build or invalidate an existing
+image. Use commit SHAs or tags that stay fixed for reproducible deployments.
+Changes behind a base-image tag also do not trigger a rebuild.
 
-Общий template подставляет образ и `pull_policy: never` сервисам без своего `image`.
-Несколько таких сервисов получают один образ. В собственном template используйте
-`.Runtime.Image` и `pull_policy: never`; обновляйте скопированный template вручную.
+A failed checkout or build leaves the running project unchanged. A config-only
+change recreates containers with the existing image unless it also changes the
+rendered Dockerfile. Reverting a GitOps commit reuses the previous image if it
+is still available; otherwise Composer builds it again.
 
-Ошибка checkout или сборки сохраняет работающий проект. Изменение конфига
-пересоздаёт контейнер с прежним образом, если переменные не изменили Dockerfile.
-При revert Composer использует сохранившийся образ или собирает его заново.
-Успешно применённые проекты без изменений пропускаются.
+The default Compose template assigns the built image and `pull_policy: never`
+to services without an explicit `image`. Multiple services can share that image.
+A custom Compose template must use `.Runtime.Image` and `pull_policy: never`;
+keep copied templates up to date yourself.
 
-Изменение базового образа за тем же тегом не вызывает пересборку. Закрепляйте
-версии базовых образов и зависимостей, загружаемых при сборке.
-
-## Stage и выпуск
-
-При `source.branches: {prod: master, stage: dev}` меняйте `build.tag` в
-`base.yaml` и `Dockerfile.tmpl` на dev. Merge в master переносит сборку в prod;
-при одинаковых входах Docker использует тот же образ.
-
-Отдельную версию для всех non-prod окружений можно задать в `vars/stage.yaml`:
+To use a different version in every non-prod environment, override it in
+`vars/stage.yaml`:
 
 ```yaml
 build:
-  tag: 89abcdef0123456789abcdef0123456789abcdef01
+  tag: v1.1.0
 ```
 
-Этот override продолжает действовать после merge. Чтобы вернуть общую версию,
-перенесите его в `base.yaml` и удалите override, сохранив `stage.yaml` хотя бы с `{}`.
+This override survives a merge into the production branch. Remove it to use the
+version from `base.yaml`, keeping `stage.yaml` at least as `{}` to enable staging.
 
-В старых Dockerfile замените `$BUILD_TAG` на `{{ quote .Vars.build.tag }}`
-и удалите `ARG BUILD_TAG`.
+## Requirements and limits
 
-## Доступ к исходникам
+Docker Engine must expose its embedded BuildKit endpoints, `/grpc` and
+`/session`. Registry credentials come from Docker's configuration; configured
+credential helpers must be installed. The builder image needs its own `git`
+executable, as shown above.
 
-Пример использует публичный HTTPS. `source.auth` относится только к GitOps-репозиторию.
-Composer не передаёт ключи, SSH agent или токены внутрь Dockerfile и не предоставляет
-BuildKit secret/SSH mounts. Приватный clone с такой авторизацией пока не поддерживается.
-Не подставляйте credentials в Dockerfile через vars: они попадут в инструкции сборки.
+`source.auth` authenticates access to the GitOps repository only. Composer does
+not forward keys, SSH agents, or tokens into builds, and does not expose BuildKit
+secret or SSH mounts. Private source clones using those credentials are not
+supported. Do not put credentials in Dockerfile variables: they become build
+instructions.
 
-При переходе со старого механизма удалите `build_auth` из host YAML и перенесите
-checkout из CLI в Dockerfile, как в примере выше.
-
-## Сборка и проверка
-
-Docker Engine должен предоставлять embedded BuildKit endpoints `/grpc` и `/session`.
-Composer обращается к BuildKit через SDK; `git` для clone устанавливается в builder stage.
-Registry credentials читаются из Docker config; настроенный credential helper
-должен быть установлен.
-
-`validate` и `plan` проверяют vars и рендерят Dockerfile без обращения к исходникам
-или Docker. Сборка выполняется в `apply`/`run`. Для долгих сборок увеличьте
-`reconcile.deploy_timeout` и timeout команды apply. Команды integration-тестов
-приведены в [CONTRIBUTING.md](../CONTRIBUTING.md).
+`composer validate` and `composer plan` render and check the Dockerfile without
+accessing the application repository or Docker. Builds run during `apply` and
+`run`. For long builds, increase `reconcile.deploy_timeout` in the
+[host configuration](configuration.md) and `composer apply --timeout`.
+Build integration checks are listed in [CONTRIBUTING.md](../CONTRIBUTING.md).

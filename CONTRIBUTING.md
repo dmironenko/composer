@@ -2,11 +2,18 @@
 
 Keep pull requests focused. Describe the behavior change and how you checked it.
 Preserve independent app deployments and the boundaries in
-[the architecture guide](docs/architecture.md#код).
+[the architecture guide](docs/architecture.md#package-boundaries).
 
 ## Local checks
 
-Use the Go version in `go.mod` or newer:
+Clone the repository and use the Go version in `go.mod` or newer:
+
+```sh
+git clone https://github.com/dmironenko/composer.git
+cd composer
+```
+
+Run the checks:
 
 ```sh
 go generate ./...
@@ -17,7 +24,8 @@ go build -o bin/composer ./cmd/composer
 ```
 
 Test behavior changes and commit regenerated mocks with interface changes.
-Documentation-only changes do not need new tests.
+Write documentation and comments in English. For documentation-only changes,
+check the commands and links; new tests are not needed.
 
 Maintainers also run the shared Vixar platform linter:
 

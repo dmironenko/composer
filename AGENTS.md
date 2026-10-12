@@ -1,96 +1,102 @@
 # Composer
 
-Перед изменениями проверь git status и сохрани работу пользователя.
+Check Git status before editing and preserve the user's work. Write all
+documentation, comments, and CLI help in English.
 
-## Главный принцип
+## Design
 
-Минимум кода: Git → vars/templates → сети → Compose SDK. Composer знает
-соглашение `apps/<namespace>/<name>` и окружения, но не типы приложений.
-NGINX, HAProxy, БД и другие сервисы описываются только в GitOps-репозитории.
-Не добавляй специальные Go-ветки, собственный контроллер контейнеров,
-машину состояний, framework-слои и дублирующие Compose ограничения.
-Сокращай ответственность, а не сжимай строки.
+Keep the flow small: Git snapshots, vars/templates, networks, Compose SDK.
+Composer knows `apps/<namespace>/<name>` and environments, not application types.
+Describe nginx, proxies, databases, and routing in GitOps. Do not add app-specific
+Go branches, a container controller, a state machine, framework layers, or
+validation that duplicates Compose. Reduce responsibilities, not readability.
 
-Сначала ищи готовое решение в стандартной библиотеке или зависимостях.
-Сохраняй поведение, делай минимальные изменения и проверяй их существующими тестами.
-Не добавляй абстракции без нескольких реальных потребителей.
+Look for existing standard-library or dependency support first. Preserve behavior,
+make focused changes, and use existing tests. Add abstractions only for real needs.
 
-## Контракты
+## Contracts
 
-- Кавычки в YAML нужны только там, где без них меняется тип или смысл значения.
-- В YAML-примерах отступ — два пробела; command и healthcheck.test — однострочные строки.
-  Для shell-команд явно указывай `sh -c`; перед блоками compose и secrets — пустая строка.
-  Блок secrets располагай внизу vars-файла: словарь с отдельными значениями ENC[<base64>].
-- Prod = base; любое другое окружение = base + stage. Основные настройки — base.yaml.
-- Нет stage.yaml — приложение выключено во всех non-prod окружениях; пустой файл включает его.
-- Единственный список окружений — source.branches; имена произвольные, prod — особый случай.
-- Run перечитывает host YAML каждый проход; ошибочный конфиг сохраняет последние принятые настройки.
-- Удаление записи окружения удаляет его контейнеры, включая после restart; volumes/images сохраняются.
-  В наших примерах prod=master, stage=dev; у клиента любые имена.
-- Ошибка source/render одного окружения не вызывает его удаления и не блокирует другое.
-- Один каталог — независимый Compose project; namespace/environment — отдельная сеть.
-- Все namespace networks, включая запрошенные через helper network, готовятся до параллельных Compose operations.
-- Config-only update действительно применяется; scale не пересоздаёт прежние реплики.
-- Значения secrets расшифровываются через age до merge; age_key_file вне Git, plaintext не выводится в отчётах.
-- Подстановки — только Go templates; второй Compose interpolation отключён для сохранения `$` в секретах.
-- После неудачного применения старый хэш успеха не должен скрывать Git revert.
-- Volumes/images не удаляются автоматически; GitOps repo считается доверенным.
-- Образы и build cache хранит Docker; отдельный менеджер кэша Composer не нужен.
-- Source image определяется repository + tag (SHA, тег или ветка) + отрендеренный Dockerfile.
-- Build завершается до инвалидирования applied marker и Up; ошибка build сохраняет прежний project.
-- Получение исходников и компиляция — в Dockerfile из GitOps; repository/tag подставляются
-  через .Vars.build, CLI передаёт пустой build context без build args.
-- source.auth относится только к GitOps. Credentials не передаются в Dockerfile.
-- Runtime build использует embedded BuildKit и проверяется adapter integration tests.
-- GitHub Actions не требуется: Composer сам читает Git, проверяет и применяет изменения.
-- Код не знает demo-приложений. Init создаёт пустую структуру, fixtures живут в тестах.
+- Separate logical blocks with blank lines: setup, execution, and verification.
+  Keep a call and its error check together. Apply this to code, scripts, and templates.
+- Use two-space YAML indentation. Quote values only to preserve type or meaning.
+  Keep `command` and `healthcheck.test` on one line; shell commands use `sh -c`.
+  Leave a blank line before `compose` and `secrets`. Put `secrets` last as a mapping
+  of individually encrypted `ENC[<base64>]` values.
+- `prod` reads base; all other environments read base + stage. Keep shared settings
+  in `base.yaml`. Missing `stage.yaml` disables non-prod; an empty file enables it.
+- `source.branches` is the only environment list. Names are configurable; only
+  `prod` is special. Examples map prod to master and stage to dev.
+- `run` reloads host YAML each pass; invalid changes preserve accepted settings.
+  Removing an environment removes its containers, including after a restart,
+  but retains volumes/images. Source/render errors preserve that environment
+  and do not block others.
+- Each app directory is an independent Compose project. Each namespace/environment
+  gets a network. Create all managed networks, including those requested by the
+  `network` helper, before parallel Compose operations.
+- Config-only updates must apply. Scaling must preserve existing replicas.
+- Decrypt secrets with age before merging vars. Keep `age_key_file` outside Git
+  and plaintext out of reports. Use only Go templates; disable Compose interpolation
+  so `$` in secrets survives.
+- A failed apply must not leave a success hash that hides a later Git revert.
+- Do not automatically delete volumes/images. Treat the GitOps repository as trusted.
+- Docker owns images and build cache; do not add a Composer cache manager.
+- Build identity is repository + tag (SHA, tag, or branch) + rendered Dockerfile.
+  Finish building before invalidating the applied marker or calling Up; failed
+  builds preserve the running project.
+- Clone and compile app sources in the GitOps Dockerfile. Render `.Vars.build`
+  into it; the CLI passes an empty build context and no build args.
+- `source.auth` applies only to GitOps; credentials are not forwarded to builds.
+  Use embedded BuildKit and verify builds with adapter integration tests.
+- Composer fetches, validates, and applies changes itself; GitHub Actions is optional.
+- `init` creates an empty structure. Demo apps belong in fixtures or
+  [composer-example](https://github.com/dmironenko/composer-example).
 
-## Где смотреть
+## Package boundaries
 
-[README](README.md) — работающие команды и ограничения.
-[Архитектура](docs/architecture.md) — контракт и границы кода.
-[Сборки](docs/builds.md) — Dockerfile, commit, auth и границы runtime.
-[Systemd](docs/systemd.md) — установка, обновление и проверка в Ubuntu VM.
-Не представляй будущие возможности как реализованные.
+Within `internal/app/composer`:
 
-Следуй idiomatic Go и инструкциям [CONTRIBUTING.md](CONTRIBUTING.md).
-Гексагональные границы (`internal/app/composer`):
+- `domain`: models, values, and pure rules. Standard library only; no I/O, SDKs,
+  or serialization tags.
+- `service/{reconcile,deployment,build}`: use cases, policy, and consumer-owned
+  outbound interfaces in `ports.go`. No config, os, SDK, ports, or adapters imports.
+- `ports/cli`: commands, flags, and JSON DTOs. Does not construct external clients.
+- `adapters/{git,gitops,docker,state,systemd}`: technical implementations. Adapters
+  cannot import sibling adapters or inbound ports.
+- `cmd/composer`: the composition root, host YAML, bootstrap, process lock,
+  constructors, and cleanup. Polling/retry policy belongs to reconcile.
 
-- `domain` — модели, значения и чистые правила; только stdlib без IO, без SDK и DTO-тегов.
-- `service/{reconcile,deployment,build}` — сценарии, политика и consumer-owned
-  исходящие интерфейсы в ports.go. Нет imports config, os, SDK, ports или adapters.
-- `ports/cli` — входные команды, flags и JSON DTO; не создаёт внешние клиенты.
-- `adapters/{git,gitops,docker,state,systemd}` — технические реализации портов.
-  Адаптер не импортирует соседний адаптер или inbound port.
-- `cmd/composer` — единственный composition root: host YAML, bootstrap, lock,
-  конструкторы и cleanup. Политика polling/retry принадлежит reconcile.
+Compose SDK models stay inside GitOps/Docker adapters. Pass `domain.Manifest`
+with the rendered document, WorkingDir, and ConfigHash; services do not parse it.
+Hash the normalized model. Do not hide SDK types in domain via `any`, aliases,
+or callbacks.
 
-Compose SDK model существует только внутри GitOps/Docker adapters. Между ними
-передаётся domain.Manifest с исходным rendered document, WorkingDir и ConfigHash;
-service не разбирает содержимое. Hash считается по прежнему normalized model.
-Нельзя прятать SDK в any, type alias или callback внутри domain.
+`adapters/state` owns filesystem markers. Services order operations through
+Inventory/Journal and perform no direct I/O. CLI maps `domain.Report` to a public
+DTO without manifests or secrets. Do not add a DI framework, global registry,
+or duplicate Compose schema.
 
-Файловые markers обслуживает adapters/state.
-Service решает порядок операций через Inventory/Journal; не выполняет
-IO самостоятельно. CLI маппит domain.Report в публичный DTO без manifest/secrets.
-Не добавляй DI framework, общий registry или дублирующую Compose schema.
+Tests follow the same boundaries. Full wiring/integration tests belong in `cmd`;
+service tests use consumer-port mocks generated by pinned mockgen through
+`go generate ./...` (also available as `make go/generate`).
 
-Границы обязательны и для тестов. Полные wiring/integration tests живут в cmd;
-service tests используют consumer-port mocks. Mocks генерируются закреплённым
-mockgen через `make go/generate`.
+## Verification
 
-[composer-example](https://github.com/dmironenko/composer-example) — отдельный GitOps-пример.
+Follow [CONTRIBUTING.md](CONTRIBUTING.md). Code changes need build, test, vet, and
+lint checks; concurrency changes also need race checks. Documentation changes
+need working commands and links, not new tests. Keep README focused on install
+and first use; put optional topics in `docs/`. Describe implemented behavior only.
 
-## Проверки
+Use the platform linter directly through `make go/lint`. Do not copy `.golangci.yml`
+or override platform rules. Run `make go/vendor` before the first lint run and
+after dependency changes; never commit `vendor/`. `make go/architecture` uses the
+platform checker and is included in `make go/lint`. Also lint integration files
+with the platform config and `--build-tags=integration`; see CONTRIBUTING for
+commands.
 
-Команды находятся в CONTRIBUTING.md. Для кода нужны build/test/vet/lint, для goroutines — race.
-Используй линтер и конфигурацию platform напрямую через `make go/lint`.
-Не создавай локальную копию `.golangci.yml` и не переопределяй платформенные правила.
-Перед первым запуском и после изменения зависимостей — `make go/vendor`;
-сгенерированный `vendor/` не хранится в Git.
-`make go/architecture` использует checker platform; `make go/lint` запускает его перед lint.
-Проверяй также integration-файлы платформенным линтером с `--build-tags=integration`
-и `--config "$PLATFORM_DIR/configs/go/golangci.yml"` (полная команда — в CONTRIBUTING.md).
-Docker tests создают только собственные projects/networks и сохраняют чужие ресурсы.
-Systemd проверяется в одноразовой Ubuntu VM через `test/systemd/check.sh`, включая reboot.
-`composer-example` содержит только runnable GitOps-пример; тестовая инфраструктура в нём не хранится.
+Docker tests must create their own projects/networks and preserve other resources.
+Test systemd only in a disposable Ubuntu VM with `test/systemd/check.sh`, including
+reboot. Keep test infrastructure out of the runnable composer-example repository.
+
+See [architecture](docs/architecture.md) for dependency rules,
+[builds](docs/builds.md) for source builds, and [systemd](docs/systemd.md) for
+installation and Ubuntu checks.

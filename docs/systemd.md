@@ -1,68 +1,98 @@
-# Запуск на Ubuntu
+# Run on Ubuntu
 
-Установите Docker Engine и Linux-бинарник Composer. Разместите host YAML, ключи
-и локальный GitOps-репозиторий (для `source.mode: local`) по постоянным путям.
-Относительные пути в конфиге разрешаются от YAML.
+Install Docker Engine and [Composer](../README.md#install). Composer deploys apps;
+server users, Docker installation, firewall rules, and kernel settings remain
+part of your host provisioning.
 
-```sh
-sudo ./composer install --config /etc/composer/host.yaml
+Keep the host config at `/etc/composer/composer.yaml`, outside the GitOps
+repository. Configure its [Git source and environment branches](configuration.md),
+and place the age key and Git credentials alongside it with mode `0600`.
+Relative paths resolve from the host YAML. For a local rootful Docker daemon:
+
+```yaml
+docker:
+  host: unix:///var/run/docker.sock
 ```
 
-Для `installation: demo` команда проверяет конфиг, копирует бинарник в
-`/usr/local/lib/composer/demo/composer`, создаёт
-`/etc/systemd/system/composer-demo.service` и запускает агент с автозапуском.
-Конфиг остаётся на месте; unit ссылается на его абсолютный путь.
+Check the host config and render the apps before starting the service:
 
-Команда возвращается после запуска процесса. Ход выкатки смотрите в журнале:
+```sh
+sudo "$(command -v composer)" config check --config /etc/composer/composer.yaml
+sudo "$(command -v composer)" validate --config /etc/composer/composer.yaml
+```
+
+Install and start the service in one command:
+
+```sh
+sudo "$(command -v composer)" install --config /etc/composer/composer.yaml
+```
+
+For `installation: demo`, this validates the configuration, copies the current
+binary to `/usr/local/lib/composer/demo/composer`, and creates and enables
+`composer-demo.service`. The unit uses the original host YAML by its absolute
+path. The command returns when the agent starts; follow deployment progress with:
 
 ```sh
 sudo systemctl status composer-demo
 sudo journalctl -u composer-demo -f
 ```
 
-Агент работает от root с его Docker config/context. Для локального rootful Docker
-можно задать `docker.host: unix:///var/run/docker.sock`. Переменные окружения
-оболочки в unit не копируются; credentials и age key должны быть доступны агенту.
+The agent runs as root and uses root's Docker configuration and context. For a
+local rootful Docker daemon, use the socket shown above.
+Shell environment variables are not copied into the unit. Keys and credentials
+must be accessible to the service.
 
-## Обновление и остановка
+A report with `action: noop` means the app already matches its Git configuration.
+Check `commits` to confirm the branch revisions being deployed. Composer does
+not repair containers changed or removed manually; inspect their health with
+`docker ps` and their logs with `docker logs CONTAINER`.
 
-Повторный `install` обновляет бинарник и unit и перезапускает агент этой installation.
-Чужой unit команда не перезаписывает. Дополнительные настройки задавайте через
-`systemctl edit composer-demo`.
+## Update or stop
+
+Install the new CLI version, then run `install` again:
 
 ```sh
-sudo ./composer-new install --config /etc/composer/host.yaml
+go install github.com/dmironenko/composer/cmd/composer@latest
+sudo "$(command -v composer)" install --config /etc/composer/composer.yaml
+```
+
+This replaces the binary and unit and restarts that installation's agent. It
+refuses to overwrite an unrelated unit. Use `sudo systemctl edit composer-demo`
+for service overrides.
+
+```sh
 sudo systemctl stop composer-demo
 sudo systemctl start composer-demo
 ```
 
-Остановка агента сохраняет контейнеры. При старте с прежним state_dir успешно
-применённые проекты без изменений пропускаются. После сбоя systemd перезапускает
-агент через 5 секунд; после перезагрузки сервера он стартует автоматически.
+Stopping the agent leaves applications running. With the same `state_dir`, a
+restart skips unchanged, successfully applied projects. Systemd restarts a
+failed agent after five seconds and starts it automatically after a host reboot.
 
-Чтобы убрать автозапуск, сохранив приложения:
+To disable the agent while keeping applications running:
 
 ```sh
 sudo systemctl disable --now composer-demo
 ```
 
-Для удаления сервиса удалите его unit и каталог бинарника, затем выполните
-`systemctl daemon-reload`. State dir и Docker-ресурсы сохраняются.
+To remove the service entirely, also delete its unit and installed binary
+directory, then run `sudo systemctl daemon-reload`. State and Docker resources
+are retained.
 
-## Проверка на настоящем systemd
+## Test systemd changes
 
-Запускайте [test/systemd/check.sh](../test/systemd/check.sh) от root в одноразовой
-Ubuntu VM с Docker, Git и Python 3. Скопируйте скрипт в `/var/tmp/systemd-check.sh`,
-а бинарник в `/tmp/composer`:
+Run [test/systemd/check.sh](../test/systemd/check.sh) as root in a disposable Ubuntu
+VM with Docker, Git, and Python 3. Copy the script to
+`/var/tmp/systemd-check.sh` and a Linux Composer binary to `/tmp/composer`:
 
 ```sh
 sudo bash /var/tmp/systemd-check.sh /tmp/composer
-# Сценарий напечатает каталог /var/tmp/composer-systemd.<suffix>.
+# note the printed /var/tmp/composer-systemd.<suffix> directory.
 sudo reboot
-# После повторного подключения:
+# after reconnecting:
 sudo bash /var/tmp/systemd-check.sh reboot-check /var/tmp/composer-systemd.<suffix>
 ```
 
-Сценарий проверяет install, обновление, stop/start, перезапуск после сбоя,
-config-only изменения, сохранение чужого unit и автозапуск после reboot с прежним
-контейнером. После проверки удалите VM.
+The check covers installation, updates, stop/start, crash recovery, config-only
+deployment, preservation of an unrelated unit, and boot startup with the same
+application container. Delete the VM when finished.

@@ -1,129 +1,103 @@
 # Composer
 
-GitOps for Docker Compose, written in Go. Composer polls Git and deploys changed
-applications independently, including config-only changes. Revert a commit to roll back.
-It runs as a binary on macOS or a systemd service on Ubuntu.
+GitOps for Docker Compose. Composer watches Git branches and deploys changed apps
+independently, including config-only changes. Revert a commit to roll back.
+Runs on macOS and Linux, with systemd installation on Ubuntu.
 
-## Build and run
+## Install
 
-Requires Go 1.26.3 or newer and Docker Engine with embedded BuildKit or Docker
-Desktop for deployments. The Compose CLI is not required.
-
-```sh
-git clone --branch master https://github.com/dmironenko/composer.git
-cd composer
-go build -o bin/composer ./cmd/composer
-bin/composer --help
-```
-
-Follow [composer-example](https://github.com/dmironenko/composer-example) to run a
-local stack and deploy changes from commits. To create an empty GitOps repository:
+Requires [Go 1.26.8 or newer](https://go.dev/dl/):
 
 ```sh
-bin/composer init ../my-gitops --branch master --config ./composer.local.yaml
+go install github.com/dmironenko/composer/cmd/composer@latest
 ```
 
-`init` creates files only. Initialize Git in `../my-gitops` and commit your apps,
-then deploy:
+Make sure Go's binary directory is on your `PATH` (by default, `$HOME/go/bin`).
+If `composer` is not found, add `export PATH="$HOME/go/bin:$PATH"` to your shell
+profile and open a new terminal. Repeat the install command to update.
+
+Deployments need Docker Engine with embedded BuildKit or Docker Desktop running.
+The Docker Compose CLI and the Vixar platform repository are not required.
+
+## First deployment
+
+This creates a GitOps repository with one nginx app. Run it in a new directory;
+Git must be installed and configured to create commits.
 
 ```sh
-bin/composer validate --config ./composer.local.yaml
-bin/composer apply --config ./composer.local.yaml --wait --timeout 15m
-bin/composer run --config ./composer.local.yaml
+composer init my-gitops --branch master --installation my-stack --config composer.yaml
+mkdir -p my-gitops/apps/demo/nginx/vars
+cat > my-gitops/apps/demo/nginx/vars/base.yaml <<'YAML'
+compose:
+  services:
+    nginx:
+      image: nginx:1.28-alpine
+YAML
+git -C my-gitops init -b master
+git -C my-gitops add .
+git -C my-gitops commit -m 'feat: add nginx'
+composer apply --config composer.yaml --wait
+composer run --config composer.yaml
 ```
 
-`run` polls for commits until stopped. Containers keep running after it exits.
+`apply` deploys the committed snapshot. `run` keeps polling for new commits;
+Ctrl-C stops the agent and leaves containers running. This app publishes no host
+ports. Use `docker ps --filter name=my-stack-prod-demo-nginx`
+to see its container.
 
-## Repository layout
+`init` creates an empty `apps/` directory and a host config outside the repository.
+It points both environments at the chosen branch; this app runs only in prod
+because it has no `stage.yaml`. To test changes on `dev`, follow
+[environments](docs/configuration.md#environments).
+
+For a browser-accessible stack with TLS, secrets, and stage routing, use
+[composer-example](https://github.com/dmironenko/composer-example#quick-start).
+
+## Everyday use
+
+Edit app files, commit, and let `composer run` deploy them. With a remote source,
+push the commit too. Uncommitted edits are ignored.
+
+| Command | Purpose |
+| --- | --- |
+| `composer config check` | Check host YAML without contacting Git or Docker |
+| `composer validate` | Fetch and validate committed app definitions without Docker |
+| `composer plan` | Compare them with the last successful deployment without Docker |
+| `composer apply --wait` | Deploy a snapshot and retry until ready or timeout |
+| `composer run` | Poll Git and deploy changes continuously |
+
+Commands read `composer.yaml` by default; use `--config PATH` for another file.
+See `composer --help` or `composer COMMAND --help` for flags.
+On Ubuntu, [install the systemd service](docs/systemd.md) to keep the agent running.
+
+## How apps are organized
 
 ```text
 apps/<namespace>/<app>/
-  vars/base.yaml
-  vars/stage.yaml            # optional; enables non-production environments
-  configs/config.yaml.tmpl   # any config format; .tmpl selects Go templates
-  Dockerfile.tmpl            # optional source build
-templates/compose.yaml.tmpl  # optional replacement for the default template
+  vars/base.yaml            # shared settings, including production
+  vars/stage.yaml           # optional overrides; enables non-prod environments
+  configs/config.yaml.tmpl  # optional config in any text format
+  Dockerfile.tmpl           # optional source build
+templates/compose.yaml.tmpl # optional shared Compose template
 ```
 
-Each app is an independent Compose project with one or more services. Each
-namespace/environment pair has its own Docker network, created before deployments.
-Keep fixed host ports and `container_name` out of services that need multiple replicas.
+Each app is a separate Compose project with one or more services. Each
+namespace/environment pair gets its own network. The environment named `prod`
+uses `base.yaml`; every other environment adds `stage.yaml`. Branch names are
+configured explicitly and can be `master`, `main`, or any other branch.
 
-- `prod` reads `base.yaml`; other environments add overrides from `stage.yaml`.
-- Missing `stage.yaml` disables the app outside prod; `{}` enables it.
-- `enabled: false` disables the project.
-- Maps merge recursively, lists replace lists, and `null` removes a key.
-
-The default Compose template sets `restart: always` and the namespace network.
-Export it to customize shared settings:
-
-```sh
-bin/composer template export compose --output ../my-gitops/templates/compose.yaml.tmpl
-```
-
-Config templates use Go templates. For example, `{{ .Vars.app | toYAML }}` renders
-an entire `app` block. Mount the result as
-`./configs/config.yaml:/etc/app/config.yaml:ro` and use the container path in your
-app's command. Files without `.tmpl` are copied unchanged.
-
-## Environments
-
-Keep host YAML outside the GitOps repository. Paths are relative to that file:
-
-```yaml
-version: 1
-installation: my-stack
-source:
-  mode: local
-  path: my-gitops
-  branches:
-    prod: master
-    stage: dev
-  poll_interval: 10s
-state_dir: my-stack-state
-docker: {}
-reconcile:
-  parallelism: 4
-  git_timeout: 30s
-  deploy_timeout: 5m
-```
-
-Create the selected branches before starting Composer. Each environment reads its
-whole branch, including configs, Dockerfiles, and templates. Local sources read
-commits without changing your working tree. Remote sources use shallow fetches
-and support SSH keys, HTTPS token files, or anonymous access.
-
-Test on `dev`, then merge into `master` to deploy to prod. Branch names are
-configurable. Add `alice: users/alice` for another environment; `run` reloads
-host YAML each pass. Routing between environments belongs in your GitOps templates.
-
-## Deployment behavior
-
-`validate` checks rendered Compose documents; `plan` compares them with the last
-successful deployment. Neither contacts Docker. `apply --wait` retries a fixed
-snapshot; `run` fetches new commits and retries failed projects on each pass.
-Unchanged projects are skipped. Scaling preserves existing replicas.
-
-Deleting an app or environment, removing `stage.yaml`, or setting `enabled: false`
-removes the affected containers. Volumes, images, and namespace networks remain.
-Fetch and rendering errors preserve existing deployments.
-
-Composer relies on stored state to track deployments and does not repair manual
-Docker changes. Use one agent per state directory. Services must tolerate
-dependencies starting later; there is no cross-project startup ordering or
-zero-downtime guarantee.
-
-Use trusted GitOps repositories: they have Docker-level privileges. Composer
-encrypts secrets with age for storage in Git. Keep the private key outside Git
-and protect the state directory, which contains decrypted configs.
+Removing an app removes its containers. Volumes, images, and namespace networks
+remain. Composer tracks deployments in its state directory; it does not repair
+manual Docker changes. Services must tolerate dependencies starting later.
+Deployments can briefly interrupt the changed app.
 
 ## Guides
 
-Detailed guides are currently in Russian:
+- [Add, configure, scale, or remove an app](docs/apps.md)
+- [Git authentication, branches, and host settings](docs/configuration.md)
+- [Build an app from source](docs/builds.md)
+- [Use encrypted secrets](docs/secrets.md)
+- [Run on Ubuntu with systemd](docs/systemd.md)
 
-- [Architecture and deployment rules](docs/architecture.md)
-- [Source builds and Docker image caching](docs/builds.md)
-- [Encrypted secrets](docs/secrets.md)
-- [Ubuntu and systemd](docs/systemd.md)
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development checks.
+For contributors: [development checks](CONTRIBUTING.md) and
+[architecture](docs/architecture.md).

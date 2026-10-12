@@ -1,19 +1,13 @@
-# Секреты
+# Secrets
 
-В `secrets` видны имена и вложенность, а каждое секретное значение шифруется
-отдельно через age. Composer расшифровывает значения перед объединением
-`base.yaml` и `stage.yaml` и передаёт их шаблонам через `.Secrets`.
+Keep secret names in YAML and encrypt each value with age. Composer decrypts
+values before merging `base.yaml` and `stage.yaml`, then exposes them as
+`.Secrets` in templates.
 
-```yaml
-secrets:
-  stage_token: ENC[...]
-  database:
-    password: ENC[...]
-```
+## Create a key once
 
-## Один ключ для всех приложений
-
-Создайте ключ вне GitOps-репозитория:
+Install the [age tools](https://github.com/FiloSottile/age#installation), then
+create a key outside the GitOps repository:
 
 ```sh
 mkdir -p "$HOME/.config/composer"
@@ -22,26 +16,27 @@ age-keygen -o "$HOME/.config/composer/age.txt"
 chmod 600 "$HOME/.config/composer/age.txt"
 ```
 
-Перенесите этот ключ на сервер с правами `0600` для пользователя Composer.
-Укажите его один раз в host YAML; относительный путь считается от этого файла:
+Copy the key to the Composer host with mode `0600`, readable by the user running
+Composer. Set its path once in the host YAML:
 
 ```yaml
 age_key_file: /etc/composer/age.txt
 ```
 
-Поддерживается один native X25519 age identity в файле. Для открытых vars ключ
-не нужен. `.sops.yaml`, `recipient` и другие настройки в приложениях не нужны.
+One native X25519 age identity can encrypt secrets for all applications. Relative
+paths resolve from the host YAML. Applications need no recipients or metadata,
+and unencrypted vars need no key.
 
-## Добавление и изменение
+## Add a secret
 
-Подайте само значение на stdin. Например, для демонстрационного токена:
+Pass the value on stdin. For a demonstration token:
 
 ```sh
 printf '%s' 'some-token' | composer secrets encrypt --key-file "$HOME/.config/composer/age.txt"
 ```
 
-Команда печатает строку `ENC[…]`. Скопируйте её в нужное поле в конце
-`vars/base.yaml` приложения:
+Copy the returned `ENC[...]` string into the application's `vars/base.yaml`.
+Encrypt each password or token separately and keep `secrets` at the end:
 
 ```yaml
 app:
@@ -54,48 +49,49 @@ compose:
       image: your-app:version
 
 secrets:
-  stage_token: ENC[...] # результат команды
+  stage_token: ENC[...]
   database:
-    password: ENC[...] # отдельно зашифрованный пароль
+    password: ENC[...]
 ```
 
-Реальные значения можно передавать из защищённого файла через `< /path/to/secret`.
-Шифруются точные байты ввода, включая пробелы и переводы строк; используйте
-`printf '%s'`, если перевод строки не нужен. Учитывайте историю терминала.
+For real secrets, redirect a protected file with `< /path/to/secret` to avoid
+putting the value in shell history. Encryption preserves the exact input,
+including spaces and newlines; `printf '%s'` adds no trailing newline.
 
-Для чтения подайте только строку `ENC[…]`, без имени поля:
-
-```sh
-composer secrets decrypt --key-file "$HOME/.config/composer/age.txt"
-# Вставьте строку ENC[…] и завершите ввод Ctrl-D.
-```
-
-Для изменения зашифруйте новое значение и замените только его строку.
-В `stage.yaml` можно переопределить один секрет, сохранив остальные из base.
-Расшифрованные значения остаются строками: `123`, `true` и `null` не меняют тип.
-Имена полей и структура не шифруются.
-
-В шаблоне доступны `.Secrets.stage_token` и `.Secrets.database.password`.
-Для конфига целиком:
+Templates can read `.Secrets.stage_token` and `.Secrets.database.password`.
+To combine application settings and secrets in a YAML config:
 
 ```gotemplate
 {{ merge .Vars.app .Secrets | toYAML }}
 ```
 
-## Применение
+Commit and push to deploy. A change to a secret used by the project recreates its
+containers with the existing image unless it also changes the rendered
+Dockerfile. Encrypting the same value again does not trigger a deployment.
+Names and nesting stay visible; decrypted values are always strings, including
+`123`, `true`, and `null`. Dollar signs stay literal.
 
-После commit работают обычные `validate`, `plan`, `apply` и `run`. Изменение
-используемого секрета пересоздаёт контейнеры соответствующего проекта с прежним
-образом. Повторное шифрование тех же значений не вызывает выкатку. `$`, `$$`
-и `${…}` сохраняются буквально. Ошибка ключа или повреждение шифротекста
-сохраняет текущий проект и возвращает ошибку без содержимого секретов.
+## Read or replace a secret
 
-Готовые конфиги записываются в `state_dir`, включая при `validate` и `plan`.
-Каталоги имеют права `0700`, конфиги — `0444` (`0555` для исполняемых файлов).
-Монтируйте их с `:ro` и защищайте резервные копии. Старые версии сохраняются
-до удаления проекта. Compose environment доступен пользователям Docker.
+Run the decrypt command, paste only the `ENC[...]` value, then press Enter and
+Ctrl-D to finish stdin:
 
-Прежние значения `age:…`, включая формат `secrets: age:…` с целым YAML-блоком,
-продолжают читаться для совместимости со старыми коммитами.
-SOPS не поддерживается; при миграции расшифруйте его файл через SOPS,
-зашифруйте нужные значения Composer и удалите метаданные `sops` и `.sops.yaml`.
+```sh
+composer secrets decrypt --key-file "$HOME/.config/composer/age.txt"
+```
+
+To replace a secret, encrypt the new value and replace its YAML entry. An entry
+in `stage.yaml` overrides the matching base secret; other secrets are inherited.
+A wrong key or damaged ciphertext fails without exposing secret values or
+removing the current project.
+
+## Rendered files
+
+Rendered configs contain plaintext secrets in `state_dir`, including after
+`validate` and `plan`. Directories use mode `0700`; files use `0444`, or `0555`
+when executable. Mount configs read-only with `:ro` and protect state backups.
+Old config versions remain until project removal. Docker users can also inspect
+secrets passed through container environment variables.
+
+Legacy `age:...` values, including encrypted whole YAML blocks, remain readable
+for old commits. SOPS files are not supported.
