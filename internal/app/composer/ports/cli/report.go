@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 // Report exposes deployment outcomes, never manifests, credentials or build inputs.

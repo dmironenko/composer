@@ -13,7 +13,7 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/git"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/git"
 )
 
 // go-git's file transport starts git-upload-pack. Keep this separate from the

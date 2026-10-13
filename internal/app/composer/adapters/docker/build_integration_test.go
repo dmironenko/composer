@@ -16,7 +16,7 @@ import (
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 func TestBuildWithoutExecutables(t *testing.T) {

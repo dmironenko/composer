@@ -13,15 +13,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dmironenko/composer/internal/app/composer/ports/cli"
+	"github.com/dmironenko/composer/v2/internal/app/composer/ports/cli"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops"
 )
 
 //nolint:gocognit,gocyclo,cyclop,maintidx // Keep each table case setup, action and assertions together.

@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/sync/singleflight"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 // Builder prepares absent images and coalesces concurrent requests for the same image.

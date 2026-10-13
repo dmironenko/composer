@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops"
 )
 
 func (bootstrap) EncryptSecrets(input []byte, keyFile string) ([]byte, error) {

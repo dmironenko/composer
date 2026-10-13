@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/docker"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/docker"
 )
 
 //nolint:paralleltest // Docker CLI initialization updates process-wide logging and environment.

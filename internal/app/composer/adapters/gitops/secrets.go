@@ -3,7 +3,7 @@ package gitops
 import (
 	"fmt"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops/internal/vars"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops/internal/vars"
 )
 
 // EncryptSecrets encrypts one secret value for use in vars.

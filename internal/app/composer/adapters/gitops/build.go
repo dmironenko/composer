@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 func prepareBuild(files fs.FS, folder string, data *templateData, project *domain.Project) error {

@@ -13,9 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	domain "github.com/dmironenko/composer/internal/app/composer/domain"
-	deployment "github.com/dmironenko/composer/internal/app/composer/service/deployment"
-	reconcile "github.com/dmironenko/composer/internal/app/composer/service/reconcile"
+	domain "github.com/dmironenko/composer/v2/internal/app/composer/domain"
+	deployment "github.com/dmironenko/composer/v2/internal/app/composer/service/deployment"
+	reconcile "github.com/dmironenko/composer/v2/internal/app/composer/service/reconcile"
 	gomock "go.uber.org/mock/gomock"
 )
 

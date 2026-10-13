@@ -19,7 +19,7 @@ import (
 	"github.com/moby/moby/client"
 	"go.yaml.in/yaml/v3"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 const sourceDockerfile = `FROM busybox:1.37.0

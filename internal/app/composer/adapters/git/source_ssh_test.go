@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/git"
-	"github.com/dmironenko/composer/test/gitserver"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/git"
+	"github.com/dmironenko/composer/v2/test/gitserver"
 )
 
 func TestSourceSSH(t *testing.T) {

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops"
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 func TestNamespaceNetworkReference(t *testing.T) {

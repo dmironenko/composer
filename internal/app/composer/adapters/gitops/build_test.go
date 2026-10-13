@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops"
 )
 
 //nolint:gocognit,gocyclo,cyclop,maintidx // Keep rendered build identity assertions beside each input change.

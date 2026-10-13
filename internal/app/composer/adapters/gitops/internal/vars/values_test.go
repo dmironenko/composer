@@ -8,7 +8,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops/internal/vars"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops/internal/vars"
 )
 
 func TestReadEncryptedValues(t *testing.T) {

@@ -13,9 +13,9 @@ import (
 
 	"go.uber.org/mock/gomock"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/state"
-	"github.com/dmironenko/composer/internal/app/composer/domain"
-	"github.com/dmironenko/composer/internal/app/composer/service/deployment"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/state"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/service/deployment"
 )
 
 //nolint:gocognit,gocyclo,cyclop,funlen,maintidx // Verify each plan and its unchanged on-disk state together.

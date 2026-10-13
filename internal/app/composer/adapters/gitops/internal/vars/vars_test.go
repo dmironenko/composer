@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops/internal/vars"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops/internal/vars"
 )
 
 //nolint:maintidx // Keep malformed YAML cases and value assertions in one table.

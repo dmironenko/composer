@@ -16,7 +16,7 @@ import (
 	gitclient "github.com/go-git/go-git/v5/plumbing/transport/client"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/git"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/git"
 )
 
 //nolint:paralleltest // The HTTPS transport registry is global and restored before parallel tests run.

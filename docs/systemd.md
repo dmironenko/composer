@@ -26,7 +26,7 @@ for nginx and Certbot.
 On the Ubuntu server, install Docker Engine and Composer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/master/install.sh | sudo sh -s -- v1.0.0 /usr/local/bin
+curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/v2.0.0/install.sh | sudo sh -s -- v2.0.0 /usr/local/bin
 ```
 
 Docker installation, server users, firewall rules, and kernel settings belong to
@@ -121,7 +121,7 @@ See [host configuration](configuration.md) for details.
 Install the desired release, then reinstall the agent:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/master/install.sh | sudo sh -s -- v1.0.0 /usr/local/bin
+curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/v2.0.0/install.sh | sudo sh -s -- v2.0.0 /usr/local/bin
 sudo /usr/local/bin/composer install --config /etc/composer/composer.yaml
 ```
 
@@ -150,3 +150,19 @@ sudo systemctl disable --now composer-example
 To remove the service entirely, also delete its unit and installed binary
 directory, then run `sudo systemctl daemon-reload`. State and Docker resources
 are retained. Back up `state_dir` and protect it: it contains decrypted configs.
+
+## Upgrading from v1
+
+Version 2 changes service names and the default network. Prod keeps the names
+from `compose.services`; other environments append `-<environment>`. Update
+upstream addresses and remove manually added stage suffixes before upgrading.
+All apps now share one installation network: namespaces organize files, but do
+not isolate traffic. Service names must be unique across apps in each environment.
+Use explicit Compose networks if you need isolation.
+
+Move the top-level `enabled` option to `compose.x-composer.enabled`. Put app
+settings and encrypted values under `app`; update templates to use `.Vars.app`.
+Validate your repository with the new binary before restarting the agent.
+
+To install from source, use
+`go install github.com/dmironenko/composer/v2/cmd/composer@v2.0.0`.

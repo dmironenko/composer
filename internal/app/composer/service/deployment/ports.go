@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 // Inventory reads recorded deployment state for planning.

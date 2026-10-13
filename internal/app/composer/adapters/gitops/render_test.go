@@ -10,10 +10,10 @@ import (
 	"github.com/compose-spec/compose-go/v2/loader"
 	"github.com/compose-spec/compose-go/v2/types"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops"
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops/internal/vars"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops/internal/vars"
 )
 
 const secret = "private-render-value-123"

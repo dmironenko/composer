@@ -14,7 +14,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	domain "github.com/dmironenko/composer/internal/app/composer/domain"
+	domain "github.com/dmironenko/composer/v2/internal/app/composer/domain"
 	gomock "go.uber.org/mock/gomock"
 )
 

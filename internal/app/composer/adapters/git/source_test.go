@@ -13,7 +13,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/git"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/git"
 )
 
 //nolint:gocognit,gocyclo,cyclop,funlen,maintidx,paralleltest // One lifecycle uses a process-wide PATH fixture.

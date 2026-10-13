@@ -17,7 +17,7 @@ import (
 	"github.com/docker/compose/v5/pkg/compose"
 	"github.com/moby/moby/client"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 // Options selects a Docker daemon by endpoint or named context.

@@ -67,8 +67,8 @@ Commit and push the release changes, including the release workflow, then tag
 that commit:
 
 ```sh
-git tag -a v1.0.0 -m "release v1.0.0"
-git push origin v1.0.0
+git tag -a v2.0.0 -m "release v2.0.0"
+git push origin v2.0.0
 ```
 
 The release workflow runs on `v*` tag pushes. It tests the code, checks for known

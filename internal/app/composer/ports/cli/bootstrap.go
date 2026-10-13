@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 // Runner is the application entrypoint used by the CLI.

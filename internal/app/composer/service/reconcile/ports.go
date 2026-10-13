@@ -5,8 +5,8 @@ package reconcile
 import (
 	"context"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
-	"github.com/dmironenko/composer/internal/app/composer/service/deployment"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/service/deployment"
 )
 
 // Source supplies committed snapshots. Its caller serializes the state directory.

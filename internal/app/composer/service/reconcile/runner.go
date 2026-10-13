@@ -8,8 +8,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
-	"github.com/dmironenko/composer/internal/app/composer/service/deployment"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/service/deployment"
 )
 
 const (

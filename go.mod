@@ -1,4 +1,4 @@
-module github.com/dmironenko/composer
+module github.com/dmironenko/composer/v2
 
 go 1.26.8
 

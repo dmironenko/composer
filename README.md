@@ -14,11 +14,12 @@ Composer handles fetching and deployment; GitHub Actions is optional.
 On macOS or Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/master/install.sh | sh -s -- v1.0.0
+curl -fsSL https://raw.githubusercontent.com/dmironenko/composer/v2.0.0/install.sh | sh -s -- v2.0.0
 ```
 
 The [installer](install.sh) detects your architecture, checks SHA256, and installs
 to `~/.local/bin` without sudo. Go is not required. Change the version to update.
+Upgrading from v1? Check the [migration notes](docs/systemd.md#upgrading-from-v1).
 
 If needed, add `~/.local/bin` to your PATH. For bash or zsh:
 

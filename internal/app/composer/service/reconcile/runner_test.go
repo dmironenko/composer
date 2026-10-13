@@ -1,6 +1,6 @@
 package reconcile_test
 
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=state_mock_test.go -package=reconcile_test github.com/dmironenko/composer/internal/app/composer/service/deployment Inventory
+//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=state_mock_test.go -package=reconcile_test github.com/dmironenko/composer/v2/internal/app/composer/service/deployment Inventory
 
 import (
 	"context"
@@ -13,9 +13,9 @@ import (
 
 	"go.uber.org/mock/gomock"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
-	"github.com/dmironenko/composer/internal/app/composer/service/deployment"
-	"github.com/dmironenko/composer/internal/app/composer/service/reconcile"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/service/deployment"
+	"github.com/dmironenko/composer/v2/internal/app/composer/service/reconcile"
 )
 
 func TestSnapshotLifecycle(t *testing.T) {

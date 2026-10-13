@@ -3,7 +3,7 @@ package deployment
 import (
 	"fmt"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 // Plan compares rendered hashes with successful applications, never container state.

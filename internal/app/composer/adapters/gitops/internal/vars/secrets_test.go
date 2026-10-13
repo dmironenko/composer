@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops/internal/vars"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops/internal/vars"
 )
 
 //nolint:gocognit,gocyclo,cyclop,maintidx // Keep each table case and its related assertions together.

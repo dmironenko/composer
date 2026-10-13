@@ -5,7 +5,7 @@ package build
 import (
 	"context"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 // Backend owns Docker's image storage and build execution.

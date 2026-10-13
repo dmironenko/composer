@@ -9,11 +9,11 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 
 	"go.yaml.in/yaml/v3"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops/internal/vars"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops/internal/vars"
 )
 
 //go:embed compose.yaml.tmpl

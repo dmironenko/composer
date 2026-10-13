@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
 )
 
 func TestValidTag(t *testing.T) {

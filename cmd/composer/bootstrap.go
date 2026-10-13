@@ -11,15 +11,15 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/spf13/cobra"
 
-	"github.com/dmironenko/composer/internal/app/composer/adapters/docker"
-	"github.com/dmironenko/composer/internal/app/composer/adapters/git"
-	"github.com/dmironenko/composer/internal/app/composer/adapters/gitops"
-	"github.com/dmironenko/composer/internal/app/composer/adapters/state"
-	"github.com/dmironenko/composer/internal/app/composer/adapters/systemd"
-	"github.com/dmironenko/composer/internal/app/composer/ports/cli"
-	"github.com/dmironenko/composer/internal/app/composer/service/build"
-	"github.com/dmironenko/composer/internal/app/composer/service/deployment"
-	"github.com/dmironenko/composer/internal/app/composer/service/reconcile"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/docker"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/git"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/gitops"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/state"
+	"github.com/dmironenko/composer/v2/internal/app/composer/adapters/systemd"
+	"github.com/dmironenko/composer/v2/internal/app/composer/ports/cli"
+	"github.com/dmironenko/composer/v2/internal/app/composer/service/build"
+	"github.com/dmironenko/composer/v2/internal/app/composer/service/deployment"
+	"github.com/dmironenko/composer/v2/internal/app/composer/service/reconcile"
 )
 
 const stateDirectoryMode = 0o700

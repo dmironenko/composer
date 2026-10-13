@@ -10,8 +10,8 @@ import (
 
 	"go.uber.org/mock/gomock"
 
-	"github.com/dmironenko/composer/internal/app/composer/domain"
-	"github.com/dmironenko/composer/internal/app/composer/service/deployment"
+	"github.com/dmironenko/composer/v2/internal/app/composer/domain"
+	"github.com/dmironenko/composer/v2/internal/app/composer/service/deployment"
 )
 
 //nolint:gocognit,maintidx // Keep build ordering and the resulting deployment markers together.
