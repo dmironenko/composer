@@ -33,9 +33,9 @@ func TestNamespaceNetworkReference(t *testing.T) {
 				t.Fatalf("Load: projects=%v, error=%v", projects, err)
 			}
 
-			actual := model(t, projects[0]).Extensions["x-stage-network"]
-			if actual != projects[1].Network || !slices.Contains(projects[0].Networks, projects[1].Network) {
-				t.Fatalf("network reference=%v, expected=%s", actual, projects[1].Network)
+			actual, ok := model(t, projects[0]).Extensions["x-stage-network"].(string)
+			if !ok || actual == projects[0].Network || !slices.Contains(projects[0].Networks, actual) {
+				t.Fatalf("network reference=%v, installation network=%s", actual, projects[0].Network)
 			}
 		})
 	}
@@ -44,29 +44,30 @@ func TestNamespaceNetworkReference(t *testing.T) {
 func TestDefaultTemplateNetworks(t *testing.T) {
 	t.Parallel()
 
-	for _, environment := range []string{"prod", "alice"} {
-		t.Run(environment, func(t *testing.T) {
-			t.Parallel()
+	root, cfg := fixture(t, "demo", "worker")
+	cfg.Environments = []string{"prod", "alice"}
 
-			root, cfg := fixture(t, "demo", "worker")
-			cfg.Environments = []string{environment}
-			cfg.AllEnvironments = []string{"prod", "alice"}
+	write(t, root, "apps/demo/worker/vars/base.yaml",
+		strings.Replace(base, "compose:\n", "compose:\n  x-composer: {enabled: true}\n", 1))
+	write(t, root, "apps/demo/worker/vars/stage.yaml", "{}")
+	write(t, root, "apps/other/worker/vars/base.yaml", base)
+	write(t, root, "apps/other/worker/vars/stage.yaml", "{}")
 
-			write(t, root, "apps/demo/worker/vars/stage.yaml", "{}")
-			write(t, root, "apps/demo/worker/vars/base.yaml", strings.Replace(base, "compose:\n", `compose:
-  x-composer:
-    network_alias: api
-    route_namespace: product
-    networks:
-      storage:
-        namespace: data
-        environment: prod
-`, 1))
+	projects, err := gitops.New(cfg).Load(t.Context(), root)
+	check(t, err == nil && len(projects) == 4, "unexpected projects")
 
-			project := loadOne(t, cfg, root)
-			check(t, project.Error == "", project.Error)
-			assertDefaultNetworks(t, project)
-		})
+	for _, project := range projects {
+		check(t, project.Error == "", project.Error)
+		check(t, project.Network == projects[0].Network, "apps use different installation networks")
+		check(t, len(project.Networks) == 0, "unexpected additional networks")
+
+		compose := model(t, project)
+		_, hasOptions := compose.Extensions["x-composer"]
+		check(t, !hasOptions, "Composer options leaked into the deployment manifest")
+		check(t, len(compose.Networks) == 1 && bool(compose.Networks["default"].External),
+			"unexpected default network")
+		check(t, compose.Networks["default"].Name == project.Network, "incorrect default network")
+		check(t, len(modelService(t, project, "worker").Networks) == 1, "unexpected service networks")
 	}
 }
 
@@ -244,26 +245,4 @@ func assertServiceReferences(t *testing.T, project domain.Project) {
 	manual, disabled := compose.DisabledServices["manual-stage"]
 	_, dependency := manual.DependsOn["worker-stage"]
 	check(t, disabled && dependency, "disabled service lost")
-}
-
-func assertDefaultNetworks(t *testing.T, project domain.Project) {
-	t.Helper()
-
-	compose := model(t, project)
-	service := modelService(t, project, "worker")
-	_, hasOptions := compose.Extensions["x-composer"]
-	check(t, !hasOptions, "Composer options leaked into the deployment manifest")
-
-	check(t, slices.Equal(service.Networks["default"].Aliases, []string{"api-" + project.Environment}),
-		"missing environment-specific alias")
-	check(t, len(service.Networks) == 4 && len(project.Networks) == 3, "missing network attachments")
-
-	for _, name := range []string{"storage", "env_prod", "env_alice"} {
-		network := compose.Networks[name]
-		check(t, bool(network.External) && slices.Contains(project.Networks, network.Name),
-			"network was not scheduled for creation", name)
-	}
-
-	check(t, compose.Networks["env_prod"].Name != compose.Networks["env_alice"].Name,
-		"environment networks must be separate")
 }

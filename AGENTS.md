@@ -30,9 +30,9 @@ make focused changes, and use existing tests. Add abstractions only for real nee
   Removing an environment removes its containers, including after a restart,
   but retains volumes/images. Source/render errors preserve that environment
   and do not block others.
-- Each app directory is an independent Compose project. Each namespace/environment
-  gets a network. Create all managed networks, including those requested by the
-  `network` helper, before parallel Compose operations.
+- Each app directory is an independent Compose project. All apps in an
+  installation share one network. Create managed networks, including those
+  requested by the `network` helper, before parallel Compose operations.
 - Compose service names stay unchanged in prod; other environments append
   `-<environment>` after vars merge, including references between services.
   No per-app suffix setting is needed.

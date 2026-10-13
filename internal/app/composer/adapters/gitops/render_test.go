@@ -121,8 +121,8 @@ func TestArbitraryProjects(t *testing.T) {
 					fmt.Sprintf("project=%+v", project))
 			}
 
-			check(t, projects[0].Name != projects[1].Name && projects[0].Network != projects[1].Network,
-				"environments share project or namespace network")
+			check(t, projects[0].Name != projects[1].Name && projects[0].Network == projects[1].Network,
+				"environments must have separate projects on one installation network")
 		})
 	}
 }

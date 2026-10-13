@@ -82,7 +82,7 @@ environments keep applying their `stage.yaml` overrides. There is no `prod.yaml`
 For a personal environment, create its branch and add `alice: users/alice` under
 `source.branches`. Names must start with a lowercase letter, contain only
 lowercase letters, digits, or hyphens, and be at most 63 characters long.
-Each environment gets separate projects and namespace networks. If you use fixed
+Each environment gets separate projects on the installation network. If you use fixed
 host ports as in the walkthrough, give each environment a free port in its branch.
 For ingress routing without per-app host ports, see the
 [example](https://github.com/dmironenko/composer-example#personal-environments).

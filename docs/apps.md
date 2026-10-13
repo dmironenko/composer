@@ -21,7 +21,7 @@ To run the app outside prod, also commit `vars/stage.yaml` containing `{}` or th
 settings to override.
 
 The default template adds `restart: always`, connects services to the
-namespace's environment-specific network, and rotates JSON logs at 10 MB with
+installation network, and rotates JSON logs at 10 MB with
 three files. Put Compose settings under `compose`; they are validated by the
 Compose SDK. Explicit service `networks`, `network_mode`, and `logging` replace
 the corresponding defaults. Vars maps merge recursively, lists and scalars
@@ -131,34 +131,13 @@ reference connects it to the container. For a service with both a config file
 and environment variables, use `app.config`
 and `app.env`, and serialize `.Vars.app.config` in the config template.
 
-## Connect networks
+## Connect services
 
-Use `compose.services.<service>.networks` and `compose.networks` for ordinary
-Docker network settings. The built-in template accepts these optional helpers
-under `compose.x-composer`:
-
-| Setting | Effect |
-| --- | --- |
-| `networks` | Additional namespace/environment networks for the app's services |
-| `network_alias` | Alias suffixed with the environment, such as `api-prod` |
-| `route_namespace` | Connections to one namespace in every configured environment |
-
-For example, connect an app to production storage:
-
-```yaml
-compose:
-  x-composer:
-    networks:
-      storage:
-        namespace: storage
-        environment: prod
-```
-
-These networks are created before deployments begin. `network_alias: api` adds
-`api-<environment>` on the app's default network. A proxy with
-`route_namespace: product` joins that namespace through `env_prod`, `env_stage`,
-and any other configured environments. Routing rules stay in the proxy's config.
-Explicit service `networks` or `network_mode` override these automatic attachments.
+All apps in an installation share one Docker network. The ingress can reach
+services in every namespace and environment without network settings in vars.
+Keep service names unique across namespaces. Use standard Docker Compose
+`services.<service>.networks` only when a service needs network-specific options;
+an explicit `networks` or `network_mode` replaces the default attachment.
 
 Service names are automatic: `meet` in prod, `meet-stage` in stage, and
 `meet-dan` in an environment named `dan`. The suffix comes from the environment
@@ -174,10 +153,8 @@ Addresses inside application configs and explicit network aliases remain under
 your control. In config templates, use `{{ .Env }}` to address the current stage,
 for example `meet{{ if ne .Env "prod" }}-{{ .Env }}{{ end }}:6080`.
 
-These helpers are consumed by Composer and omitted from the generated Compose
-file. For repositories using the old `app.networks`, `app.network_alias`,
-or `app.route_namespace` settings, move those keys into
-`compose.x-composer` when upgrading. Keys under `app` are now only template data.
+`compose.x-composer` holds only the `enabled` flag. Composer omits it from the
+generated Compose file. Keys under `app` are only template data.
 
 ## Customize the shared template
 
@@ -197,18 +174,16 @@ Helpers: `toYAML`, `toJSON`, `quote`, `quoteEnv`, `indent`, `get`, `default`, `d
 `merge`, and `network`. Template expressions inside vars are not evaluated again.
 Compose's `${VAR}` interpolation is disabled; use Go templates for substitutions.
 
-Each namespace/environment has a separate Docker network. The template helper
-`network "prod" "payments"` returns a managed network name and schedules its
-creation before app deployments. Use it in a custom template for network wiring
-that differs from the built-in options above.
+The template helper `network "prod" "payments"` returns a managed network name
+and schedules its creation before app deployments. Use it only when a custom
+template needs an additional namespace/environment network.
 Other external networks must already exist. Composer does not order startup
 across apps or automatically fall back to prod when a stage service is missing.
 
 ## Rename an app or namespace
 
-The directory path determines the Compose project and network names. Renaming
-an app or namespace removes the old projects and creates new ones; expect an
-interruption. Update `route_namespace` and `networks` under `compose.x-composer`.
+The directory path determines the Compose project name. Renaming an app or
+namespace removes the old projects and creates new ones; expect an interruption.
 Old named volumes remain, but new project names do not automatically reuse them.
 Plan data migration before renaming an app with persistent storage. Fixed host
 ports must be released by the old containers before replacements can start.
@@ -225,7 +200,7 @@ compose:
 
 To disable it only outside prod, remove `stage.yaml` or put the same override there.
 Composer removes the affected containers and retains volumes, images, and
-namespace networks. To remove an app from every environment, delete it from
+the installation network. To remove an app from every environment, delete it from
 every mapped branch. Revert the commit to restore the app.
 
 The old top-level `enabled` key remains readable for rollbacks.

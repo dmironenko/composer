@@ -69,7 +69,7 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// EnsureNetwork creates a missing namespace network.
+// EnsureNetwork creates a missing managed network.
 func (c *Client) EnsureNetwork(ctx context.Context, name, installation string) error {
 	_, err := c.engine.NetworkInspect(ctx, name, client.NetworkInspectOptions{})
 	if err == nil {

@@ -139,9 +139,14 @@ func TestGitOpsLifecycle(t *testing.T) {
 		t.Fatal(inspectErr)
 	}
 
+	if len(prodInspect.Container.NetworkSettings.Networks) != 1 {
+		t.Fatal("prod must use one installation network")
+	}
+
 	for network := range prodInspect.Container.NetworkSettings.Networks {
-		if stageInspect.Container.NetworkSettings.Networks[network] != nil {
-			t.Fatal("stage shares prod network")
+		if stageInspect.Container.NetworkSettings.Networks[network] == nil ||
+			webInspect.Container.NetworkSettings.Networks[network] == nil {
+			t.Fatal("apps must share the installation network")
 		}
 	}
 
@@ -279,7 +284,7 @@ func TestGitOpsLifecycle(t *testing.T) {
 
 	for name := range stageInspect.Container.NetworkSettings.Networks {
 		if _, checkErr := engine.NetworkInspect(ctx, name, client.NetworkInspectOptions{}); checkErr != nil {
-			t.Fatal("namespace network removed:", checkErr)
+			t.Fatal("installation network removed:", checkErr)
 		}
 	}
 

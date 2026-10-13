@@ -56,7 +56,7 @@ A reconciliation pass:
 1. Reads a committed snapshot of each configured branch through go-git.
 2. Decrypts vars, merges overrides, and renders configs, Dockerfiles, and Compose.
 3. Compares the project hash with its last successful deployment.
-4. Creates namespace/environment networks and networks requested by templates.
+4. Creates the installation network and networks requested by templates.
 5. Builds missing images and calls Compose Up or Down within `parallelism`.
 6. Records each successful deployment's hash.
 

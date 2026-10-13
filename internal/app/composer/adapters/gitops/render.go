@@ -87,7 +87,7 @@ func loadProject(ctx context.Context, cfg Options, files fs.FS, folder, env stri
 	name := identity(cfg.Installation, env, parts[1], parts[2])
 	project := domain.Project{
 		Name: name, Environment: env,
-		Network:   identity(cfg.Installation, env, parts[1]),
+		Network:   identity(cfg.Installation),
 		Directory: filepath.Join(cfg.StateDir, "deployments", env, name),
 	}
 
